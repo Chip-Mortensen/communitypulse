@@ -90,7 +90,7 @@ export default function IssueDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="max-w-4xl mx-auto p-6 flex items-center justify-center min-h-[50vh]">
+      <div className="max-w-6xl mx-auto p-6 flex items-center justify-center min-h-[50vh]">
         <div className="text-center">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
           <p className="mt-2 text-gray-700">Loading issue details...</p>
@@ -101,7 +101,7 @@ export default function IssueDetailPage() {
 
   if (error || !currentIssue) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-6xl mx-auto p-6">
         <div className="mb-6">
           <Link href="/issues" className="text-blue-600 hover:underline flex items-center">
             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -120,7 +120,7 @@ export default function IssueDetailPage() {
   const governmentContact = getGovernmentContact(currentIssue.category);
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-6xl mx-auto p-6">
       <div className="mb-6">
         <Link href="/issues" className="text-blue-600 hover:underline flex items-center">
           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

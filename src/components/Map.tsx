@@ -135,13 +135,23 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
         longitude={selectedIssue.location.lng}
         latitude={selectedIssue.location.lat}
         onClose={() => setSelectedIssue(null)}
-        closeButton={true}
+        closeButton={false}
         closeOnClick={false}
         anchor="bottom"
         offset={[0, -30]} // Offset to position above the marker
+        className="custom-popup" // Add custom class for styling
       >
-        <div className="p-2 max-w-xs">
-          <h3 className="font-semibold text-sm mb-1">{selectedIssue.title}</h3>
+        <div className="p-2 max-w-xs relative">
+          <button 
+            onClick={() => setSelectedIssue(null)}
+            className="absolute top-0 right-0 w-6 h-6 flex items-center justify-center bg-gray-200 hover:bg-gray-300 rounded-full transition-colors"
+            aria-label="Close popup"
+          >
+            <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <h3 className="font-semibold text-sm mb-1 pr-6">{selectedIssue.title}</h3>
           <p className="text-xs text-gray-700 mb-2">{selectedIssue.address}</p>
           <p className="text-xs mb-2 line-clamp-2">{selectedIssue.description}</p>
           <div className="flex justify-between items-center">
@@ -198,6 +208,11 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
 
   return (
     <div className="w-full h-[calc(100vh-64px)] relative">
+      <style jsx global>{`
+        .custom-popup .mapboxgl-popup-close-button {
+          display: none;
+        }
+      `}</style>
       <Map
         ref={mapRef}
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}

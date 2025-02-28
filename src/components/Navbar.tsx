@@ -1,10 +1,64 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const router = useRouter();
+  const supabase = createClient();
+
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          throw error;
+        }
+
+        setUser(session?.user || null);
+      } catch (error) {
+        console.error('Error getting user:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    getUser();
+
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase.auth]);
+
+  const handleSignOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        throw error;
+      }
+
+      // Close the profile dropdown
+      setIsProfileOpen(false);
+      
+      // Refresh the page to update auth state
+      router.refresh();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
 
   return (
     <nav className="bg-white shadow-md">
@@ -38,18 +92,84 @@ export default function Navbar() {
             </div>
           </div>
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
-            <Link
-              href="/new-issue"
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Report Issue
-            </Link>
-            <Link
-              href="/login"
-              className="ml-3 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Sign In
-            </Link>
+            {user ? (
+              <>
+                <Link
+                  href="/new-issue"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Report Issue
+                </Link>
+                <div className="ml-3 relative">
+                  <div>
+                    <button
+                      type="button"
+                      className="bg-white rounded-full flex text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      id="user-menu-button"
+                      aria-expanded={isProfileOpen}
+                      aria-haspopup="true"
+                      onClick={() => setIsProfileOpen(!isProfileOpen)}
+                    >
+                      <span className="sr-only">Open user menu</span>
+                      <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold">
+                        {user.email?.charAt(0).toUpperCase() || 'U'}
+                      </div>
+                    </button>
+                  </div>
+                  {isProfileOpen && (
+                    <div
+                      className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50"
+                      role="menu"
+                      aria-orientation="vertical"
+                      aria-labelledby="user-menu-button"
+                      tabIndex={-1}
+                    >
+                      <div className="px-4 py-2 text-xs text-gray-500">
+                        {user.email}
+                      </div>
+                      <Link
+                        href="/profile"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        role="menuitem"
+                        tabIndex={-1}
+                        id="user-menu-item-0"
+                        onClick={() => setIsProfileOpen(false)}
+                      >
+                        Your Profile
+                      </Link>
+                      <button
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        role="menuitem"
+                        tabIndex={-1}
+                        id="user-menu-item-2"
+                        onClick={handleSignOut}
+                      >
+                        Sign out
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                {!isLoading && (
+                  <>
+                    <Link
+                      href="/auth/login"
+                      className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      Sign In
+                    </Link>
+                    <Link
+                      href="/auth/signup"
+                      className="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      Sign Up
+                    </Link>
+                  </>
+                )}
+              </>
+            )}
           </div>
           <div className="-mr-2 flex items-center sm:hidden">
             <button
@@ -118,20 +238,68 @@ export default function Navbar() {
             </Link>
           </div>
           <div className="pt-4 pb-3 border-t border-gray-200">
-            <div className="flex items-center px-4">
-              <Link
-                href="/new-issue"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Report Issue
-              </Link>
-              <Link
-                href="/login"
-                className="ml-3 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Sign In
-              </Link>
-            </div>
+            {user ? (
+              <div>
+                <div className="flex items-center px-4">
+                  <div className="flex-shrink-0">
+                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold">
+                      {user.email?.charAt(0).toUpperCase() || 'U'}
+                    </div>
+                  </div>
+                  <div className="ml-3">
+                    <div className="text-base font-medium text-gray-800 truncate max-w-[200px]">
+                      {user.email}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 space-y-1">
+                  <Link
+                    href="/profile"
+                    className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Your Profile
+                  </Link>
+                  <Link
+                    href="/new-issue"
+                    className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Report Issue
+                  </Link>
+                  <button
+                    className="block w-full text-left px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                    onClick={() => {
+                      handleSignOut();
+                      setIsMenuOpen(false);
+                    }}
+                  >
+                    Sign out
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center px-4">
+                {!isLoading && (
+                  <>
+                    <Link
+                      href="/auth/login"
+                      className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Sign In
+                    </Link>
+                    <Link
+                      href="/auth/signup"
+                      className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Sign Up
+                    </Link>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
