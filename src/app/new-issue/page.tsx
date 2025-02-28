@@ -6,8 +6,12 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useIssueStore } from '@/store/issueStore';
-import { Issue } from '@/types/database.types';
+import { Database } from '@/types/supabase';
 import PageContainer from '@/components/PageContainer';
+
+// Define types directly from the Supabase generated types
+type Issue = Database['public']['Tables']['issues']['Row'];
+type IssueInsert = Database['public']['Tables']['issues']['Insert'];
 
 const issueSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters'),
@@ -54,11 +58,12 @@ export default function NewIssuePage() {
       return;
     }
 
-    const issueData: Omit<Issue, 'id' | 'created_at' | 'updated_at' | 'upvotes'> = {
+    const issueData: IssueInsert = {
       ...data,
       location: userLocation,
       status: 'open',
       user_id: 'current-user', // In a real app, this would be the current user's ID
+      image_url: null, // Add the image_url field with null value
     };
 
     const newIssue = await createIssue(issueData);

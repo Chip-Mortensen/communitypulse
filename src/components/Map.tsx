@@ -4,13 +4,33 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import Map, { Marker, Popup, MapRef } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { Issue } from '@/types/database.types';
+import { Database } from '@/types/supabase';
+
+// Define types directly from the Supabase generated types
+type Issue = Database['public']['Tables']['issues']['Row'];
+type Location = {
+  lat: number;
+  lng: number;
+};
 
 type MapComponentProps = {
   issues?: Issue[];
   isLoading?: boolean;
   error?: string | null;
 };
+
+// Helper function to safely get location from issue
+function getLocation(issue: Issue): Location {
+  if (!issue.location) {
+    return { lat: 0, lng: 0 };
+  }
+  
+  const location = issue.location as unknown as Location;
+  return {
+    lat: location.lat || 0,
+    lng: location.lng || 0
+  };
+}
 
 // Category colors for markers
 const categoryColors: Record<string, string> = {
@@ -62,8 +82,8 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
   useEffect(() => {
     if (issues.length > 0 && !selectedIssue) {
       // Calculate the center of all issues
-      const sumLat = issues.reduce((sum, issue) => sum + issue.location.lat, 0);
-      const sumLng = issues.reduce((sum, issue) => sum + issue.location.lng, 0);
+      const sumLat = issues.reduce((sum, issue) => sum + getLocation(issue).lat, 0);
+      const sumLng = issues.reduce((sum, issue) => sum + getLocation(issue).lng, 0);
       
       setViewState(prev => ({
         ...prev,
@@ -89,7 +109,7 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
     // Fly to the issue location with animation
     if (mapRef.current) {
       mapRef.current.flyTo({
-        center: [issue.location.lng, issue.location.lat],
+        center: [getLocation(issue).lng, getLocation(issue).lat],
         zoom: 15,
         duration: 1000, // Animation duration in milliseconds
         essential: true // This animation is considered essential for the user experience
@@ -102,8 +122,8 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
     return issues.map(issue => (
       <Marker 
         key={issue.id}
-        longitude={issue.location.lng}
-        latitude={issue.location.lat}
+        longitude={getLocation(issue).lng}
+        latitude={getLocation(issue).lat}
         anchor="bottom"
         onClick={(e) => {
           // This prevents the map's onClick from firing
@@ -132,8 +152,8 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
     
     return (
       <Popup
-        longitude={selectedIssue.location.lng}
-        latitude={selectedIssue.location.lat}
+        longitude={getLocation(selectedIssue).lng}
+        latitude={getLocation(selectedIssue).lat}
         onClose={() => setSelectedIssue(null)}
         closeButton={false}
         closeOnClick={false}

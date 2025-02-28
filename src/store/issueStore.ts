@@ -1,6 +1,12 @@
 import { create } from 'zustand';
-import { Issue, Comment } from '@/types/database.types';
+import { Database } from '@/types/supabase';
 import * as supabaseService from '@/services/supabase';
+
+// Define types directly from the Supabase generated types
+type Issue = Database['public']['Tables']['issues']['Row'];
+type Comment = Database['public']['Tables']['comments']['Row'];
+type IssueInsert = Database['public']['Tables']['issues']['Insert'];
+type CommentInsert = Database['public']['Tables']['comments']['Insert'];
 
 interface IssueState {
   issues: Issue[];
@@ -13,8 +19,8 @@ interface IssueState {
   fetchIssues: () => Promise<void>;
   fetchIssueById: (id: string) => Promise<void>;
   fetchCommentsByIssueId: (issueId: string) => Promise<void>;
-  createIssue: (issue: Omit<Issue, 'id' | 'created_at' | 'updated_at' | 'upvotes'>) => Promise<Issue | null>;
-  createComment: (comment: Omit<Comment, 'id' | 'created_at' | 'updated_at' | 'upvotes'>) => Promise<void>;
+  createIssue: (issue: IssueInsert) => Promise<Issue | null>;
+  createComment: (comment: Omit<CommentInsert, 'upvotes'>) => Promise<void>;
   updateIssueUpvotes: (id: string, upvotes: number) => Promise<void>;
 }
 

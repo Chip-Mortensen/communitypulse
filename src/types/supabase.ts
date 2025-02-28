@@ -148,6 +148,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           bio: string | null
+          city: string | null
           created_at: string
           display_name: string | null
           email: string
@@ -156,14 +157,14 @@ export type Database = {
           is_admin: boolean | null
           issues_reported: number | null
           issues_resolved: number | null
-          location: string | null
-          neighborhood: string | null
+          location: Json | null
           reputation_score: number | null
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
           bio?: string | null
+          city?: string | null
           created_at?: string
           display_name?: string | null
           email: string
@@ -172,14 +173,14 @@ export type Database = {
           is_admin?: boolean | null
           issues_reported?: number | null
           issues_resolved?: number | null
-          location?: string | null
-          neighborhood?: string | null
+          location?: Json | null
           reputation_score?: number | null
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
           bio?: string | null
+          city?: string | null
           created_at?: string
           display_name?: string | null
           email?: string
@@ -188,8 +189,7 @@ export type Database = {
           is_admin?: boolean | null
           issues_reported?: number | null
           issues_resolved?: number | null
-          location?: string | null
-          neighborhood?: string | null
+          location?: Json | null
           reputation_score?: number | null
           updated_at?: string
         }

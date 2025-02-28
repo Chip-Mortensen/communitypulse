@@ -3,8 +3,16 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useIssueStore } from '@/store/issueStore';
-import { Issue } from '@/types/database.types';
+import { Database } from '@/types/supabase';
 import PageContainer from '@/components/PageContainer';
+
+// Define types directly from the Supabase generated types
+type Issue = Database['public']['Tables']['issues']['Row'];
+
+// Helper functions to safely handle nullable fields
+const getUpvotes = (issue: Issue): number => issue.upvotes ?? 0;
+const getCreatedAt = (issue: Issue): Date => 
+  issue.created_at ? new Date(issue.created_at) : new Date();
 
 export default function IssuesPage() {
   const { issues, isLoading, error, fetchIssues } = useIssueStore();
@@ -22,9 +30,9 @@ export default function IssuesPage() {
 
   const sortedIssues = [...filteredIssues].sort((a, b) => {
     if (sortBy === 'upvotes') {
-      return b.upvotes - a.upvotes;
+      return getUpvotes(b) - getUpvotes(a);
     } else if (sortBy === 'recent') {
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return getCreatedAt(b).getTime() - getCreatedAt(a).getTime();
     }
     return 0;
   });
@@ -33,10 +41,10 @@ export default function IssuesPage() {
     <PageContainer>
       <div className="max-w-6xl mx-auto p-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Community Issues</h1>
+          <h1 className="text-2xl font-bold text-blue-600 !mb-0 flex items-center">Community Issues</h1>
           <Link
             href="/new-issue"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             Report New Issue
           </Link>
@@ -154,7 +162,7 @@ export default function IssuesPage() {
                                   clipRule="evenodd"
                                 />
                               </svg>
-                              {new Date(issue.created_at).toLocaleDateString()}
+                              {getCreatedAt(issue).toLocaleDateString()}
                             </span>
                             <span className="flex items-center">
                               <svg

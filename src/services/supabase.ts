@@ -1,5 +1,11 @@
 import { createClient } from '@/lib/supabase';
-import { Issue, Comment } from '@/types/database.types';
+import { Database } from '@/types/supabase';
+
+// Define types directly from the Supabase generated types
+type Issue = Database['public']['Tables']['issues']['Row'];
+type Comment = Database['public']['Tables']['comments']['Row'];
+type IssueInsert = Database['public']['Tables']['issues']['Insert'];
+type CommentInsert = Database['public']['Tables']['comments']['Insert'];
 
 // Issues
 export async function getIssues() {
@@ -33,7 +39,7 @@ export async function getIssueById(id: string) {
   return data as Issue;
 }
 
-export async function createIssue(issue: Omit<Issue, 'id' | 'created_at' | 'updated_at' | 'upvotes'>) {
+export async function createIssue(issue: IssueInsert) {
   const supabase = createClient();
   const { data, error } = await supabase
     .from('issues')
@@ -86,7 +92,7 @@ export async function getCommentsByIssueId(issueId: string) {
   return data as Comment[];
 }
 
-export async function createComment(comment: Omit<Comment, 'id' | 'created_at' | 'updated_at' | 'upvotes'>) {
+export async function createComment(comment: Omit<CommentInsert, 'upvotes'>) {
   const supabase = createClient();
   const { data, error } = await supabase
     .from('comments')
