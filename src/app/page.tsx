@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import MapComponent from '@/components/Map';
 import { useIssueStore } from '@/store/issueStore';
 import { createClient } from '@/lib/supabase';
+import PageContainer from '@/components/PageContainer';
 
 export default function Home() {
   const { issues, isLoading, error, fetchIssues } = useIssueStore();
@@ -48,7 +49,7 @@ export default function Home() {
 
   if (!authChecked) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen">
+      <div className="flex flex-col items-center justify-center h-full">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         <p className="mt-4 text-gray-600">Loading...</p>
       </div>
@@ -56,8 +57,8 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <PageContainer scrollable={false}>
       <MapComponent issues={issues} isLoading={isLoading} error={error} />
-    </div>
+    </PageContainer>
   );
 }

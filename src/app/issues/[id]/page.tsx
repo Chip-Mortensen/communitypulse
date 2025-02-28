@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useIssueStore } from '@/store/issueStore';
 import { Comment } from '@/types/database.types';
+import PageContainer from '@/components/PageContainer';
 
 export default function IssueDetailPage() {
   const params = useParams();
@@ -120,177 +121,179 @@ export default function IssueDetailPage() {
   const governmentContact = getGovernmentContact(currentIssue.category);
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <div className="mb-6">
-        <Link href="/issues" className="text-blue-600 hover:underline flex items-center">
-          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Back to Issues
-        </Link>
-      </div>
+    <PageContainer>
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="mb-6">
+          <Link href="/issues" className="text-blue-600 hover:underline flex items-center">
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Issues
+          </Link>
+        </div>
 
-      <div className="bg-white shadow-md rounded-lg overflow-hidden mb-6">
-        <div className="p-6">
-          <div className="flex justify-between items-start">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">{currentIssue.title}</h1>
-            <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                currentIssue.status === 'open'
-                  ? 'bg-red-100 text-red-800'
+        <div className="bg-white shadow-md rounded-lg overflow-hidden mb-6">
+          <div className="p-6">
+            <div className="flex justify-between items-start">
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">{currentIssue.title}</h1>
+              <span
+                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  currentIssue.status === 'open'
+                    ? 'bg-red-100 text-red-800'
+                    : currentIssue.status === 'in_progress'
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : 'bg-green-100 text-green-800'
+                }`}
+              >
+                {currentIssue.status === 'open'
+                  ? 'Open'
                   : currentIssue.status === 'in_progress'
-                  ? 'bg-yellow-100 text-yellow-800'
-                  : 'bg-green-100 text-green-800'
-              }`}
-            >
-              {currentIssue.status === 'open'
-                ? 'Open'
-                : currentIssue.status === 'in_progress'
-                ? 'In Progress'
-                : 'Resolved'}
-            </span>
-          </div>
-          
-          <p className="text-gray-700 mb-4">{currentIssue.address}</p>
-          
-          {currentIssue.image_url && (
-            <div className="mb-4">
-              <img
-                src={currentIssue.image_url}
-                alt={currentIssue.title}
-                className="w-full h-64 object-cover rounded-md"
-              />
-            </div>
-          )}
-          
-          <div className="prose max-w-none mb-6">
-            <p>{currentIssue.description}</p>
-          </div>
-          
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-4">
-              <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                {currentIssue.category}
-              </span>
-              <span className="text-sm text-gray-700">
-                Reported on {new Date(currentIssue.created_at).toLocaleDateString()}
+                  ? 'In Progress'
+                  : 'Resolved'}
               </span>
             </div>
             
-            <button
-              onClick={handleUpvote}
-              className={`flex items-center space-x-1 px-3 py-1 rounded-md text-sm ${
-                upvoted
-                  ? 'bg-blue-100 text-blue-800'
-                  : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-              }`}
-            >
-              <svg
-                className="h-4 w-4"
-                fill={upvoted ? 'currentColor' : 'none'}
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
+            <p className="text-gray-700 mb-4">{currentIssue.address}</p>
+            
+            {currentIssue.image_url && (
+              <div className="mb-4">
+                <img
+                  src={currentIssue.image_url}
+                  alt={currentIssue.title}
+                  className="w-full h-64 object-cover rounded-md"
                 />
-              </svg>
-              <span>{currentIssue.upvotes}</span>
-            </button>
-          </div>
-          
-          <div className="border-t border-gray-200 pt-6">
-            <h2 className="text-lg font-semibold mb-4">Government Contact</h2>
-            <div className="bg-blue-50 p-4 rounded-md">
-              <h3 className="font-medium">{governmentContact.name}</h3>
-              <p className="text-sm mt-2">
-                <strong>Email:</strong>{' '}
-                <a href={`mailto:${governmentContact.email}`} className="text-blue-600 hover:underline">
-                  {governmentContact.email}
-                </a>
-              </p>
-              <p className="text-sm mt-1">
-                <strong>Phone:</strong> {governmentContact.phone}
-              </p>
-              <p className="text-sm mt-1">
-                <strong>Website:</strong>{' '}
-                <a href={governmentContact.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                  {governmentContact.website}
-                </a>
-              </p>
+              </div>
+            )}
+            
+            <div className="prose max-w-none mb-6">
+              <p>{currentIssue.description}</p>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white shadow-md rounded-lg overflow-hidden mb-6">
-        <div className="p-6">
-          <h2 className="text-lg font-semibold mb-4">Comments ({comments.length})</h2>
-          
-          <form onSubmit={handleCommentSubmit} className="mb-6">
-            <div className="mb-4">
-              <textarea
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Add a comment..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                rows={3}
-              />
-            </div>
-            <div className="flex justify-end">
+            
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-4">
+                <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                  {currentIssue.category}
+                </span>
+                <span className="text-sm text-gray-700">
+                  Reported on {new Date(currentIssue.created_at).toLocaleDateString()}
+                </span>
+              </div>
+              
               <button
-                type="submit"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                onClick={handleUpvote}
+                className={`flex items-center space-x-1 px-3 py-1 rounded-md text-sm ${
+                  upvoted
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                }`}
               >
-                Post Comment
+                <svg
+                  className="h-4 w-4"
+                  fill={upvoted ? 'currentColor' : 'none'}
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
+                  />
+                </svg>
+                <span>{currentIssue.upvotes}</span>
               </button>
             </div>
-          </form>
-          
-          {comments.length > 0 ? (
-            <div className="space-y-4">
-              {comments.map((comment) => (
-                <div key={comment.id} className="border-b border-gray-200 pb-4 last:border-b-0 last:pb-0">
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0">
-                        <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-700">
-                          {comment.user_id.charAt(0).toUpperCase()}
+            
+            <div className="border-t border-gray-200 pt-6">
+              <h2 className="text-lg font-semibold mb-4">Government Contact</h2>
+              <div className="bg-blue-50 p-4 rounded-md">
+                <h3 className="font-medium">{governmentContact.name}</h3>
+                <p className="text-sm mt-2">
+                  <strong>Email:</strong>{' '}
+                  <a href={`mailto:${governmentContact.email}`} className="text-blue-600 hover:underline">
+                    {governmentContact.email}
+                  </a>
+                </p>
+                <p className="text-sm mt-1">
+                  <strong>Phone:</strong> {governmentContact.phone}
+                </p>
+                <p className="text-sm mt-1">
+                  <strong>Website:</strong>{' '}
+                  <a href={governmentContact.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                    {governmentContact.website}
+                  </a>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white shadow-md rounded-lg overflow-hidden mb-6">
+          <div className="p-6">
+            <h2 className="text-lg font-semibold mb-4">Comments ({comments.length})</h2>
+            
+            <form onSubmit={handleCommentSubmit} className="mb-6">
+              <div className="mb-4">
+                <textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="Add a comment..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  rows={3}
+                />
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Post Comment
+                </button>
+              </div>
+            </form>
+            
+            {comments.length > 0 ? (
+              <div className="space-y-4">
+                {comments.map((comment) => (
+                  <div key={comment.id} className="border-b border-gray-200 pb-4 last:border-b-0 last:pb-0">
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-start">
+                        <div className="flex-shrink-0">
+                          <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-700">
+                            {comment.user_id.charAt(0).toUpperCase()}
+                          </div>
+                        </div>
+                        <div className="ml-3">
+                          <p className="text-sm font-medium text-gray-900">User {comment.user_id}</p>
+                          <p className="text-sm text-gray-700">
+                            {new Date(comment.created_at).toLocaleDateString()}
+                          </p>
                         </div>
                       </div>
-                      <div className="ml-3">
-                        <p className="text-sm font-medium text-gray-900">User {comment.user_id}</p>
-                        <p className="text-sm text-gray-700">
-                          {new Date(comment.created_at).toLocaleDateString()}
-                        </p>
+                      <div className="flex items-center text-sm text-gray-700">
+                        <svg
+                          className="h-4 w-4 mr-1 text-gray-700"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
+                        </svg>
+                        {comment.upvotes}
                       </div>
                     </div>
-                    <div className="flex items-center text-sm text-gray-700">
-                      <svg
-                        className="h-4 w-4 mr-1 text-gray-700"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
-                      </svg>
-                      {comment.upvotes}
+                    <div className="mt-2 text-sm text-gray-700">
+                      <p>{comment.content}</p>
                     </div>
                   </div>
-                  <div className="mt-2 text-sm text-gray-700">
-                    <p>{comment.content}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-center text-gray-700 py-4">No comments yet. Be the first to comment!</p>
-          )}
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-gray-700 py-4">No comments yet. Be the first to comment!</p>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 } 

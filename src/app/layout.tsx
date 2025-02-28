@@ -19,7 +19,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <Navbar />
-        <main className="min-h-screen flex flex-col">
+        <main className="flex-1 h-[calc(100vh-var(--navbar-height))] overflow-hidden">
           {children}
         </main>
       </body>

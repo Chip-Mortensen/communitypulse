@@ -95,7 +95,7 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
         essential: true // This animation is considered essential for the user experience
       });
     }
-  }, []);
+  }, [selectedIssue]);
 
   // Render markers for each issue
   const markers = useMemo(() => {
@@ -176,43 +176,38 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
     );
   }, [selectedIssue]);
 
-  if (isLoading) {
-    return (
-      <div className="w-full h-[calc(100vh-64px)] bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
-          <p className="mt-2 text-gray-700">Loading map...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="w-full h-[calc(100vh-64px)] bg-gray-100 flex items-center justify-center">
-        <div className="text-center p-6 bg-white rounded-lg shadow-md max-w-md">
-          <h2 className="text-2xl font-bold text-red-600 mb-4">Error</h2>
-          <p className="text-gray-700 mb-4">
-            {error}
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="w-full h-[calc(100vh-64px)] relative">
+    <div className="w-full h-full relative">
       <style jsx global>{`
         .custom-popup .mapboxgl-popup-close-button {
           display: none;
         }
       `}</style>
+      
+      {isLoading && (
+        <div className="absolute inset-0 bg-white bg-opacity-75 z-10 flex items-center justify-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+          <p className="ml-3 text-gray-700">Loading map...</p>
+        </div>
+      )}
+      
+      {error && (
+        <div className="absolute inset-0 bg-white bg-opacity-75 z-10 flex items-center justify-center">
+          <div className="text-center p-6 bg-white rounded-lg shadow-md max-w-md">
+            <h2 className="text-2xl font-bold text-red-600 mb-4">Error</h2>
+            <p className="text-gray-700 mb-4">
+              {error}
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      )}
+      
       <Map
         ref={mapRef}
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}
