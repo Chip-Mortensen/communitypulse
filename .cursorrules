@@ -1,0 +1,3 @@
+We are using supabase cloud and do not have a local instance, so use "supabase db push" for applying migrations. We will use the global supabase cli for all operations. Be sure to use cli to create migrations so timestamps are always correct
+
+Don't ever suggest running "npm run dev" I always have it running in separate terminal
