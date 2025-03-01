@@ -13,6 +13,21 @@ type Comment = Database['public']['Tables']['comments']['Row'] & {
 type IssueInsert = Database['public']['Tables']['issues']['Insert'];
 type CommentInsert = Database['public']['Tables']['comments']['Insert'];
 
+// Define a type for contact information that's compatible with Supabase's Json type
+interface ContactInfo {
+  name: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  department?: string;
+  position?: string;
+  address?: string;
+  notes?: string;
+  limitations?: string;
+  rawResponse?: string;
+  [key: string]: string | undefined;
+}
+
 interface IssueState {
   issues: Issue[];
   currentIssue: Issue | null;
@@ -26,13 +41,13 @@ interface IssueState {
   fetchCommentsByIssueId: (issueId: string) => Promise<void>;
   createIssue: (issue: IssueInsert) => Promise<Issue | null>;
   createComment: (comment: Omit<CommentInsert, 'upvotes'>) => Promise<void>;
-  updateIssueUpvotes: (id: string, upvotes: number) => Promise<void>;
+  updateIssueUpvotes: () => Promise<void>;
   toggleIssueUpvote: (issueId: string, userId: string) => Promise<{ issue: Issue | null; isUpvoted: boolean; currentUpvotes: number }>;
   checkIssueUpvote: (issueId: string, userId: string) => Promise<boolean>;
   toggleCommentUpvote: (commentId: string, userId: string) => Promise<{ comment: Comment | null; isUpvoted: boolean; currentUpvotes: number }>;
   checkCommentUpvote: (commentId: string, userId: string) => Promise<boolean>;
   deleteIssue: (id: string) => Promise<boolean>;
-  updateIssueContactInfo: (issueId: string, contactInfo: any) => Promise<Issue | null>;
+  updateIssueContactInfo: (issueId: string, contactInfo: ContactInfo) => Promise<Issue | null>;
 }
 
 export const useIssueStore = create<IssueState>((set, get) => ({
@@ -136,7 +151,7 @@ export const useIssueStore = create<IssueState>((set, get) => ({
     }
   },
   
-  updateIssueUpvotes: async (id: string, upvotes: number) => {
+  updateIssueUpvotes: async () => {
     // This function is now obsolete with real-time subscriptions
     // Keeping it for backward compatibility but making it a no-op
     return;
@@ -228,27 +243,60 @@ export const useIssueStore = create<IssueState>((set, get) => ({
     }
   },
   
-  updateIssueContactInfo: async (issueId: string, contactInfo: any) => {
+  updateIssueContactInfo: async (issueId: string, contactInfo: ContactInfo) => {
     try {
+      console.log('Store: updateIssueContactInfo called for issue:', issueId);
       const updatedIssue = await supabaseService.updateIssueContactInfo(issueId, contactInfo);
       
-      if (updatedIssue) {
+      // Create a fallback issue with the contact info in case the database update doesn't return data
+      let issueToUse = updatedIssue;
+      
+      if (!issueToUse) {
+        console.log('Store: No updated issue returned from database, creating fallback');
+        // Get the current issue from the store
+        const currentIssue = get().currentIssue;
+        
+        if (currentIssue && currentIssue.id === issueId) {
+          // Create a new issue object with the updated contact info
+          issueToUse = {
+            ...currentIssue,
+            contact_info: contactInfo
+          };
+          console.log('Store: Created fallback issue with contact info:', issueToUse);
+        } else {
+          // Try to find the issue in the issues array
+          const issueFromArray = get().issues.find(issue => issue.id === issueId);
+          if (issueFromArray) {
+            issueToUse = {
+              ...issueFromArray,
+              contact_info: contactInfo
+            };
+            console.log('Store: Created fallback issue from issues array:', issueToUse);
+          }
+        }
+      }
+      
+      if (issueToUse) {
+        console.log('Store: Updating state with issue:', issueToUse);
         // Update the current issue if it's the one being modified
         if (get().currentIssue?.id === issueId) {
-          set({ currentIssue: updatedIssue });
+          set({ currentIssue: issueToUse });
         }
         
         // Update the issue in the issues array
         set((state) => ({
           issues: state.issues.map(issue => 
-            issue.id === issueId ? updatedIssue : issue
+            issue.id === issueId ? issueToUse : issue
           )
         }));
+        
+        return issueToUse;
+      } else {
+        console.error('Store: Failed to update issue contact info, no issue data available');
+        return null;
       }
-      
-      return updatedIssue;
     } catch (error) {
-      console.error(`Error updating contact info for issue ${issueId}:`, error);
+      console.error(`Store: Error in updateIssueContactInfo for issue ${issueId}:`, error);
       return null;
     }
   },

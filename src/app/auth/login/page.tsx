@@ -1,15 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
 import { createClient } from '@/lib/supabase';
 import AuthForm from '@/components/AuthForm';
 
-export default function LoginPage() {
+function LoginPageContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const supabase = createClient();
 
   // Check authentication status on mount
@@ -54,9 +51,9 @@ export default function LoginPage() {
       // This bypasses any client-side routing issues
       window.location.href = '/';
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[LoginPage] Login error:', error);
-      setError(error.message || 'Failed to sign in. Please try again.');
+      setError(error instanceof Error ? error.message : 'Failed to sign in. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -72,5 +69,25 @@ export default function LoginPage() {
         error={error}
       />
     </div>
+  );
+}
+
+// Loading fallback for Suspense
+function LoginPageLoading() {
+  return (
+    <div className="text-center">
+      <h1 className="text-2xl font-bold mb-4">Loading Login Page</h1>
+      <div className="mt-4 flex justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginPageLoading />}>
+      <LoginPageContent />
+    </Suspense>
   );
 } 

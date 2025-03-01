@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase';
 import { getGovernmentContactInfo, GovernmentContact } from '@/services/contactInfo';
 
 // Add debounce utility
-function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
+function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(func: T, wait: number): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout | null = null;
   
   return function(...args: Parameters<T>) {
@@ -32,6 +32,14 @@ type Comment = Database['public']['Tables']['comments']['Row'] & {
   }
 };
 
+// Define a type for the contact info state
+interface ContactInfoState {
+  contact: GovernmentContact | null;
+  rawResponse: string;
+  isLoading: boolean;
+  error: string | null;
+}
+
 // Helper functions to safely handle nullable fields
 const getUpvotes = (data: { upvotes: number | null }): number => data.upvotes ?? 0;
 const getCreatedAt = (data: { created_at: string | null }): Date => 
@@ -47,12 +55,7 @@ export default function IssueDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   
   // Add state for contact information
-  const [contactInfo, setContactInfo] = useState<{
-    contact: any;
-    rawResponse: string;
-    isLoading: boolean;
-    error: string | null;
-  }>({
+  const [contactInfo, setContactInfo] = useState<ContactInfoState>({
     contact: null,
     rawResponse: '',
     isLoading: false,
@@ -466,10 +469,13 @@ export default function IssueDetailPage() {
   const fetchContactInfo = async () => {
     if (!currentIssue) return;
     
+    console.log('Starting to fetch contact information...');
     setContactInfo(prev => ({ ...prev, isLoading: true, error: null }));
     
     try {
+      console.log('Calling getGovernmentContactInfo...');
       const result = await getGovernmentContactInfo(currentIssue);
+      console.log('Contact info result:', result);
       
       // Update the local state with the contact information
       setContactInfo({
@@ -481,16 +487,31 @@ export default function IssueDetailPage() {
       
       // Manually update the currentIssue with the new contact information
       if (result.contact && currentIssue) {
-        const updatedIssue = {
-          ...currentIssue,
-          contact_info: {
-            ...result.contact,
-            rawResponse: result.rawResponse
-          }
+        console.log('Updating currentIssue with contact info...');
+        
+        // Create a contact info object with the result
+        const contactInfoData = {
+          ...result.contact,
+          rawResponse: result.rawResponse
         };
         
-        // Update the issue store with the new issue data
-        useIssueStore.setState({ currentIssue: updatedIssue });
+        // Explicitly call the updateIssueContactInfo function
+        console.log('Explicitly calling updateIssueContactInfo...');
+        try {
+          const issueStore = useIssueStore.getState();
+          const updatedIssue = await issueStore.updateIssueContactInfo(currentIssue.id, contactInfoData);
+          
+          if (updatedIssue) {
+            console.log('Successfully updated issue with contact info:', updatedIssue);
+          } else {
+            console.log('No updated issue returned, but UI should still be updated via store');
+          }
+        } catch (updateError) {
+          console.error('Error updating contact info:', updateError);
+          
+          // Even if there was an error, update the UI with the contact info
+          // This is now handled by the store's fallback mechanism
+        }
       }
     } catch (error) {
       console.error('Error fetching contact information:', error);

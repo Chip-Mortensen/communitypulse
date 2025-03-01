@@ -15,6 +15,7 @@ export interface GovernmentContact {
   address?: string;
   notes?: string;
   limitations?: string;
+  [key: string]: string | undefined;
 }
 
 // Function to query Perplexity API - used server-side only
@@ -153,15 +154,96 @@ ${perplexityResponse}
   }
 }
 
-// Main function to get contact information - can be used server-side
-export async function getGovernmentContactInfo(issue: Issue): Promise<{
-  contact: GovernmentContact;
-  rawResponse: string;
-}> {
+// Function to extract contact information from the AI response
+export function extractContactInfo(response: string): GovernmentContact {
+  // Parse the response to extract contact information
+  // This is a simple implementation - in a real app, you might want more robust parsing
+  try {
+    // Default values
+    const contact: GovernmentContact = {
+      name: 'Government Department',
+      email: '',
+      phone: '',
+      website: ''
+    };
+    
+    // Extract name (look for patterns like "Name:" or "Department:")
+    const nameMatch = response.match(/(?:Name|Department|Agency|Contact):\s*([^\n]+)/i);
+    if (nameMatch && nameMatch[1]) {
+      contact.name = nameMatch[1].trim();
+    }
+    
+    // Extract email (look for email patterns)
+    const emailMatch = response.match(/(?:Email|E-mail):\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i) || 
+                      response.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+    if (emailMatch && emailMatch[1]) {
+      contact.email = emailMatch[1].trim();
+    }
+    
+    // Extract phone (look for phone patterns)
+    const phoneMatch = response.match(/(?:Phone|Tel|Telephone):\s*([0-9\-\(\)\s\+\.]+)/i) ||
+                      response.match(/(\(\d{3}\)\s*\d{3}-\d{4}|\d{3}-\d{3}-\d{4})/);
+    if (phoneMatch && phoneMatch[1]) {
+      contact.phone = phoneMatch[1].trim();
+    }
+    
+    // Extract website (look for URL patterns)
+    const websiteMatch = response.match(/(?:Website|Web|URL):\s*(https?:\/\/[^\s]+)/i) ||
+                        response.match(/(https?:\/\/[^\s]+)/);
+    if (websiteMatch && websiteMatch[1]) {
+      contact.website = websiteMatch[1].trim();
+    }
+    
+    // Extract department if different from name
+    const departmentMatch = response.match(/(?:Department):\s*([^\n]+)/i);
+    if (departmentMatch && departmentMatch[1] && departmentMatch[1].trim() !== contact.name) {
+      contact.department = departmentMatch[1].trim();
+    }
+    
+    // Extract position
+    const positionMatch = response.match(/(?:Position|Title|Role):\s*([^\n]+)/i);
+    if (positionMatch && positionMatch[1]) {
+      contact.position = positionMatch[1].trim();
+    }
+    
+    // Extract address
+    const addressMatch = response.match(/(?:Address|Location):\s*([^\n]+(?:\n[^\n]+)*)/i);
+    if (addressMatch && addressMatch[1]) {
+      contact.address = addressMatch[1].trim();
+    }
+    
+    // Extract notes (any additional information)
+    const notesMatch = response.match(/(?:Notes|Additional Information):\s*([^\n]+(?:\n[^\n]+)*)/i);
+    if (notesMatch && notesMatch[1]) {
+      contact.notes = notesMatch[1].trim();
+    }
+    
+    // Extract limitations
+    const limitationsMatch = response.match(/(?:Limitations|Constraints):\s*([^\n]+(?:\n[^\n]+)*)/i);
+    if (limitationsMatch && limitationsMatch[1]) {
+      contact.limitations = limitationsMatch[1].trim();
+    }
+    
+    return contact;
+  } catch (error) {
+    console.error('Error extracting contact info:', error);
+    // Return a fallback contact
+    return {
+      name: 'Government Department',
+      email: '',
+      phone: '',
+      website: '',
+      notes: 'There was an error extracting the contact information.'
+    };
+  }
+}
+
+// Main function to get government contact information
+export async function getGovernmentContactInfo(issue: Issue): Promise<{ contact: GovernmentContact; rawResponse: string }> {
   try {
     // Check if we already have contact info in the database
     if (issue.contact_info) {
-      const storedInfo = issue.contact_info as any;
+      const storedInfo = issue.contact_info as GovernmentContact & { rawResponse?: string };
       if (storedInfo.name && typeof storedInfo.name === 'string') {
         return {
           contact: {
@@ -175,13 +257,14 @@ export async function getGovernmentContactInfo(issue: Issue): Promise<{
             notes: storedInfo.notes,
             limitations: storedInfo.limitations
           },
-          rawResponse: storedInfo.rawResponse || 'Retrieved from database'
+          rawResponse: storedInfo.rawResponse || ''
         };
       }
     }
 
     // Check if we're running on the client side
     if (typeof window !== 'undefined') {
+      console.log('Running on client side, making API call to /api/contact-info');
       // Client-side: use the API route
       const response = await fetch('/api/contact-info', {
         method: 'POST',
@@ -193,18 +276,22 @@ export async function getGovernmentContactInfo(issue: Issue): Promise<{
       
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('API response not OK:', response.status, errorData);
         throw new Error(errorData.error || 'Failed to fetch contact information');
       }
       
       const result = await response.json();
+      console.log('API response result:', result);
       
       // Save the contact info to the database
       try {
+        console.log('Attempting to save contact info to database via store');
         const issueStore = useIssueStore.getState();
-        await issueStore.updateIssueContactInfo(issue.id, {
+        const updatedIssue = await issueStore.updateIssueContactInfo(issue.id, {
           ...result.contact,
           rawResponse: result.rawResponse
         });
+        console.log('Result from updateIssueContactInfo:', updatedIssue);
       } catch (saveError) {
         console.error('Error saving contact info to database:', saveError);
         // Continue even if saving fails
@@ -226,7 +313,7 @@ export async function getGovernmentContactInfo(issue: Issue): Promise<{
       
       return result;
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error getting government contact info:', error);
     // Return a fallback contact
     return {

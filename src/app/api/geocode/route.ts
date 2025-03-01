@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get Google Maps API key from environment variable
-    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     
     if (!apiKey) {
       console.error('Google Maps API key is not configured');
@@ -45,18 +45,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log(`Geocoding coordinates: ${lat}, ${lng}`);
+    
     // Call Google Maps Geocoding API
     const response = await fetch(
       `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`
     );
 
     if (!response.ok) {
+      console.error(`Geocoding API HTTP error: ${response.status} ${response.statusText}`);
       throw new Error(`Geocoding API error: ${response.statusText}`);
     }
 
     const data: GeocodingResponse = await response.json();
+    console.log(`Geocoding API response status: ${data.status}`);
 
     if (data.status !== 'OK') {
+      console.error(`Geocoding API returned non-OK status: ${data.status}`, data.results);
       throw new Error(`Geocoding failed with status: ${data.status}`);
     }
 
@@ -88,8 +93,14 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error in geocoding API:', error);
+    
+    // Provide more detailed error information
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : 'Unknown error occurred during geocoding';
+      
     return NextResponse.json(
-      { error: 'Failed to geocode location' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

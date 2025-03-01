@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import Link from 'next/link';
 
-export default function VerifyPage() {
+function VerifyPageContent() {
   const [verificationStatus, setVerificationStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const router = useRouter();
@@ -48,10 +48,10 @@ export default function VerifyPage() {
           setVerificationStatus('error');
           setErrorMessage('Invalid verification link. Please try signing up again.');
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Verification error:', error);
         setVerificationStatus('error');
-        setErrorMessage(error.message || 'Failed to verify email. Please try again.');
+        setErrorMessage(error instanceof Error ? error.message : 'Failed to verify email. Please try again.');
       }
     };
 
@@ -95,5 +95,25 @@ export default function VerifyPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+// Loading fallback for Suspense
+function VerifyPageLoading() {
+  return (
+    <div className="text-center">
+      <h1 className="text-2xl font-bold mb-4">Loading Verification Page</h1>
+      <div className="mt-4 flex justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    </div>
+  );
+}
+
+export default function VerifyPage() {
+  return (
+    <Suspense fallback={<VerifyPageLoading />}>
+      <VerifyPageContent />
+    </Suspense>
   );
 } 

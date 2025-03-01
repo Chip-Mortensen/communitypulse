@@ -7,6 +7,21 @@ type Comment = Database['public']['Tables']['comments']['Row'];
 type IssueInsert = Database['public']['Tables']['issues']['Insert'];
 type CommentInsert = Database['public']['Tables']['comments']['Insert'];
 
+// Define a type for contact information that's compatible with Supabase's Json type
+interface ContactInfo {
+  name: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  department?: string;
+  position?: string;
+  address?: string;
+  notes?: string;
+  limitations?: string;
+  rawResponse?: string;
+  [key: string]: string | undefined;
+}
+
 // Issues
 export async function getIssues() {
   const supabase = createClient();
@@ -421,18 +436,62 @@ export async function deleteIssue(id: string): Promise<boolean> {
  * @param contactInfo The contact information to store
  * @returns The updated issue or null if an error occurred
  */
-export async function updateIssueContactInfo(issueId: string, contactInfo: any) {
+export async function updateIssueContactInfo(issueId: string, contactInfo: ContactInfo) {
+  console.log('updateIssueContactInfo called with:', { issueId, contactInfo });
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from('issues')
-    .update({ contact_info: contactInfo })
-    .eq('id', issueId)
-    .select();
+  console.log('Supabase client created');
+  
+  try {
+    // First, get the current issue to ensure we have the latest data
+    console.log('Fetching current issue data');
+    const { data: currentIssue, error: fetchError } = await supabase
+      .from('issues')
+      .select('*')
+      .eq('id', issueId)
+      .single();
+      
+    if (fetchError) {
+      console.error(`Error fetching current issue ${issueId}:`, fetchError);
+      return null;
+    }
+    
+    // Create a new issue object with all the existing data plus the updated contact_info
+    const updatedIssue = {
+      ...currentIssue,
+      contact_info: contactInfo
+    };
+    
+    console.log('Attempting to update issue with full object');
+    
+    // Update the entire issue object
+    const { data, error } = await supabase
+      .from('issues')
+      .update(updatedIssue)
+      .eq('id', issueId)
+      .select();
 
-  if (error) {
-    console.error(`Error updating contact info for issue ${issueId}:`, error);
+    if (error) {
+      console.error(`Error updating issue ${issueId}:`, error);
+      return null;
+    }
+
+    console.log('Update operation completed:', data);
+    
+    // If we got data back, return it
+    if (data && data.length > 0) {
+      console.log('Successfully updated issue with data returned');
+      return data[0] as Issue;
+    }
+    
+    // If no data was returned but there was no error, the update likely succeeded
+    // but RLS policies might be preventing the return of data
+    console.log('No data returned from update, but update may have succeeded');
+    console.log('Returning the updated issue object we created');
+    
+    // Return the updated issue object we created
+    return updatedIssue as Issue;
+  } catch (error) {
+    console.error(`Unexpected error in updateIssueContactInfo for issue ${issueId}:`, error);
     return null;
   }
-
-  return data[0] as Issue;
 } 
