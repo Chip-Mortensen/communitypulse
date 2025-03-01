@@ -146,8 +146,36 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
     console.log('Drag started');
     setIsDragging(true);
     
+    // Set data transfer properties
+    e.dataTransfer.setData('text/plain', 'new-issue');
+    e.dataTransfer.effectAllowed = 'move'; // Use 'move' instead of 'copy' to avoid the green plus icon
+    
+    // Create a transparent drag image
+    const dragImage = new Image();
+    dragImage.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+    
+    // Ensure the image is loaded before using it
+    if (!dragImage.complete) {
+      // If not loaded, create a fallback div
+      const div = document.createElement('div');
+      div.style.visibility = 'hidden';
+      div.style.position = 'absolute';
+      div.style.top = '-1000px';
+      div.style.width = '1px';
+      div.style.height = '1px';
+      document.body.appendChild(div);
+      
+      e.dataTransfer.setDragImage(div, 0, 0);
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(div);
+      }, 0);
+    } else {
+      e.dataTransfer.setDragImage(dragImage, 0, 0);
+    }
+    
     // Force a repaint to ensure the animation starts immediately
-    // This is needed because React might batch state updates
     requestAnimationFrame(() => {
       const tooltip = document.querySelector('.instruction-tooltip') as HTMLElement;
       if (tooltip) {
@@ -156,80 +184,6 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
         tooltip.classList.add('tooltip-bounce');
       }
     });
-    
-    // Set data transfer properties
-    e.dataTransfer.setData('text/plain', 'new-issue');
-    e.dataTransfer.effectAllowed = 'copy';
-    
-    try {
-      // Try using a canvas for the drag image (better appearance)
-      const canvas = document.createElement('canvas');
-      canvas.width = 60;
-      canvas.height = 60;
-      
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        // Draw circular background with gradient
-        const gradient = ctx.createLinearGradient(0, 0, 60, 60);
-        gradient.addColorStop(0, '#2563EB');
-        gradient.addColorStop(1, '#3B82F6');
-        
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(30, 30, 28, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Draw plus icon
-        ctx.strokeStyle = 'white';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        // Horizontal line
-        ctx.moveTo(20, 30);
-        ctx.lineTo(40, 30);
-        // Vertical line
-        ctx.moveTo(30, 20);
-        ctx.lineTo(30, 40);
-        ctx.stroke();
-        
-        // Add shadow
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-        ctx.shadowBlur = 10;
-        ctx.shadowOffsetX = 2;
-        ctx.shadowOffsetY = 2;
-        
-        // Set as drag image
-        e.dataTransfer.setDragImage(canvas, 30, 30);
-      }
-    } catch (err) {
-      console.error('Error setting drag image with canvas:', err);
-      
-      // Fallback: use a simple div as drag image
-      try {
-        const dragImage = document.createElement('div');
-        dragImage.innerHTML = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 6v6m0 0v6m0-6h6m-6 0H6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-        dragImage.style.backgroundColor = '#3B82F6';
-        dragImage.style.borderRadius = '50%';
-        dragImage.style.width = '50px';
-        dragImage.style.height = '50px';
-        dragImage.style.display = 'flex';
-        dragImage.style.alignItems = 'center';
-        dragImage.style.justifyContent = 'center';
-        dragImage.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-        dragImage.style.position = 'absolute';
-        dragImage.style.top = '-1000px'; // Hide it
-        
-        document.body.appendChild(dragImage);
-        e.dataTransfer.setDragImage(dragImage, 25, 25);
-        
-        // Clean up
-        setTimeout(() => {
-          document.body.removeChild(dragImage);
-        }, 100);
-      } catch (fallbackErr) {
-        console.error('Fallback drag image also failed:', fallbackErr);
-        // Continue without a custom drag image
-      }
-    }
   }, []);
 
   const handleDragEnd = useCallback((e: React.DragEvent) => {
@@ -247,7 +201,7 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
   const handleMapDragOver = useCallback((e: React.DragEvent) => {
     // This is crucial - must prevent default to allow drop
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
+    e.dataTransfer.dropEffect = 'move'; // Use 'move' instead of 'copy' to avoid the green plus icon
     
     // Add a class to the map container to show it's a valid drop target
     const mapContainer = mapRef.current?.getContainer();
@@ -616,6 +570,32 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
           display: none;
         }
         
+        /* Hide default drag ghost image */
+        [draggable="true"] {
+          -webkit-user-drag: element;
+        }
+        
+        /* This helps with the drag image appearance */
+        .no-drag-image {
+          user-select: none;
+        }
+        
+        /* Firefox specific - hide drag image */
+        @-moz-document url-prefix() {
+          [draggable="true"] {
+            position: relative;
+          }
+        }
+        
+        /* Safari specific */
+        @media not all and (min-resolution:.001dpcm) { 
+          @supports (-webkit-appearance:none) {
+            [draggable="true"] {
+              -webkit-user-drag: none;
+            }
+          }
+        }
+        
         /* Add a visual indicator when dragging over the map */
         .map-drag-active {
           cursor: crosshair !important;
@@ -647,6 +627,11 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
           pointer-events: none;
           z-index: 10;
           animation: pulse-border 1s infinite;
+        }
+        
+        /* Custom cursor during dragging */
+        .valid-drop-target {
+          cursor: none !important; /* Hide the default cursor */
         }
         
         /* Target indicator */
@@ -688,6 +673,20 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
           top: 50%;
           transform: translate(-50%, -50%);
           animation: pulse-scale 1.5s infinite;
+          box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+        }
+        
+        /* Add a dot at the center of the target indicator */
+        .target-indicator-circle::after {
+          content: '';
+          position: absolute;
+          width: 6px;
+          height: 6px;
+          background-color: #10B981;
+          border-radius: 50%;
+          left: 50%;
+          top: 50%;
+          transform: translate(-50%, -50%);
         }
         
         @keyframes pulse-scale {
@@ -842,7 +841,8 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
                 left: `${dragPosition.x}px`, 
                 top: `${dragPosition.y}px`,
                 width: '40px',
-                height: '40px'
+                height: '40px',
+                transform: 'translate(-50%, -50%)'
               }}
             >
               <div className="target-indicator-circle"></div>
@@ -875,7 +875,7 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
           onClick={handleReportButtonClick}
           onMouseEnter={() => setIsHoveringReportButton(true)}
           onMouseLeave={() => setIsHoveringReportButton(false)}
-          className={`w-14 h-14 rounded-full bg-gradient-to-r from-blue-600 to-blue-500 text-white flex items-center justify-center cursor-move shadow-lg transition-all hover:from-blue-700 hover:to-blue-600 hover:shadow-xl hover:-translate-y-0.5 ${
+          className={`w-14 h-14 rounded-full bg-gradient-to-r from-blue-600 to-blue-500 text-white flex items-center justify-center cursor-move shadow-lg transition-all hover:from-blue-700 hover:to-blue-600 hover:shadow-xl hover:-translate-y-0.5 no-drag-image ${
             isDragging ? 'opacity-50 scale-95' : 'scale-100 pulse-animation'
           }`}
           title="Drag this button to the location on the map where you want to report an issue, or click to use your current location"
@@ -922,7 +922,7 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            Drop anywhere on the map to report an issue
+            {isDragging ? 'Drop at the exact location you want to report' : 'Drag to the location you want to report'}
           </p>
         </div>
       )}
