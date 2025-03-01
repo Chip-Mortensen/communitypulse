@@ -103,6 +103,7 @@ export type Database = {
         Row: {
           address: string
           category: string
+          contact_info: Json | null
           created_at: string | null
           description: string
           id: string
@@ -117,6 +118,7 @@ export type Database = {
         Insert: {
           address: string
           category: string
+          contact_info?: Json | null
           created_at?: string | null
           description: string
           id?: string
@@ -131,6 +133,7 @@ export type Database = {
         Update: {
           address?: string
           category?: string
+          contact_info?: Json | null
           created_at?: string | null
           description?: string
           id?: string

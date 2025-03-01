@@ -47,6 +47,7 @@ export async function createIssue(issue: IssueInsert) {
       {
         ...issue,
         upvotes: 0,
+        contact_info: null,
       },
     ])
     .select();
@@ -411,4 +412,27 @@ export async function deleteIssue(id: string): Promise<boolean> {
     console.error(`Error deleting issue ${id}:`, error);
     return false;
   }
+}
+
+/**
+ * Update the contact information for an issue
+ * 
+ * @param issueId The ID of the issue to update
+ * @param contactInfo The contact information to store
+ * @returns The updated issue or null if an error occurred
+ */
+export async function updateIssueContactInfo(issueId: string, contactInfo: any) {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('issues')
+    .update({ contact_info: contactInfo })
+    .eq('id', issueId)
+    .select();
+
+  if (error) {
+    console.error(`Error updating contact info for issue ${issueId}:`, error);
+    return null;
+  }
+
+  return data[0] as Issue;
 } 

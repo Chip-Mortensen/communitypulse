@@ -8,6 +8,7 @@ import { Database } from '@/types/supabase';
 import PageContainer from '@/components/PageContainer';
 import IssueSidebarMap from '@/components/IssueSidebarMap';
 import { createClient } from '@/lib/supabase';
+import { getGovernmentContactInfo, GovernmentContact } from '@/services/contactInfo';
 
 // Add debounce utility
 function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
@@ -44,6 +45,19 @@ export default function IssueDetailPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Add state for contact information
+  const [contactInfo, setContactInfo] = useState<{
+    contact: any;
+    rawResponse: string;
+    isLoading: boolean;
+    error: string | null;
+  }>({
+    contact: null,
+    rawResponse: '',
+    isLoading: false,
+    error: null
+  });
   
   const { 
     currentIssue, 
@@ -429,40 +443,6 @@ export default function IssueDetailPage() {
     setIsSubmitting(false);
   };
 
-  // Mock government contact info based on issue category
-  const getGovernmentContact = (category?: string) => {
-    switch (category) {
-      case 'Infrastructure':
-        return {
-          name: 'Department of Public Works',
-          email: 'publicworks@sf.gov',
-          phone: '(415) 555-1234',
-          website: 'https://sf.gov/departments/public-works',
-        };
-      case 'Safety':
-        return {
-          name: 'Police Department',
-          email: 'safety@sf.gov',
-          phone: '(415) 555-5678',
-          website: 'https://sf.gov/departments/police',
-        };
-      case 'Environment':
-        return {
-          name: 'Department of Environment',
-          email: 'environment@sf.gov',
-          phone: '(415) 555-9012',
-          website: 'https://sf.gov/departments/environment',
-        };
-      default:
-        return {
-          name: 'City Hall',
-          email: 'info@sf.gov',
-          phone: '(415) 555-3456',
-          website: 'https://sf.gov',
-        };
-    }
-  };
-
   // Handle issue deletion
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this issue? This action cannot be undone.')) {
@@ -479,6 +459,46 @@ export default function IssueDetailPage() {
       console.error('Error deleting issue:', error);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // Function to fetch contact information using Perplexity and OpenAI
+  const fetchContactInfo = async () => {
+    if (!currentIssue) return;
+    
+    setContactInfo(prev => ({ ...prev, isLoading: true, error: null }));
+    
+    try {
+      const result = await getGovernmentContactInfo(currentIssue);
+      
+      // Update the local state with the contact information
+      setContactInfo({
+        contact: result.contact,
+        rawResponse: result.rawResponse,
+        isLoading: false,
+        error: null
+      });
+      
+      // Manually update the currentIssue with the new contact information
+      if (result.contact && currentIssue) {
+        const updatedIssue = {
+          ...currentIssue,
+          contact_info: {
+            ...result.contact,
+            rawResponse: result.rawResponse
+          }
+        };
+        
+        // Update the issue store with the new issue data
+        useIssueStore.setState({ currentIssue: updatedIssue });
+      }
+    } catch (error) {
+      console.error('Error fetching contact information:', error);
+      setContactInfo(prev => ({
+        ...prev,
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'An unknown error occurred'
+      }));
     }
   };
 
@@ -530,7 +550,10 @@ export default function IssueDetailPage() {
     return null;
   }
 
-  const governmentContact = getGovernmentContact(currentIssue.category);
+  // Get contact info from the database or set to null
+  const governmentContact = currentIssue.contact_info 
+    ? (currentIssue.contact_info as any)
+    : null;
 
   return (
     <PageContainer>
@@ -568,18 +591,85 @@ export default function IssueDetailPage() {
                   
                   <h2 className="font-semibold text-gray-900 mb-2">Government Contact</h2>
                   <div className="text-sm">
-                    <p className="font-medium">{governmentContact.name}</p>
-                    <p className="mt-1">
-                      <a href={`mailto:${governmentContact.email}`} className="text-blue-600 hover:underline">
-                        {governmentContact.email}
-                      </a>
-                    </p>
-                    <p className="mt-1">{governmentContact.phone}</p>
-                    <p className="mt-1">
-                      <a href={governmentContact.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        Visit Website
-                      </a>
-                    </p>
+                    {contactInfo.isLoading ? (
+                      <div className="flex flex-col items-center py-3">
+                        <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-blue-600 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+                        <p className="mt-2 text-gray-600">Finding contact information...</p>
+                      </div>
+                    ) : governmentContact ? (
+                      <>
+                        <p className="font-medium">{governmentContact.name}</p>
+                        {governmentContact.department && (
+                          <p className="text-gray-700">{governmentContact.department}</p>
+                        )}
+                        {governmentContact.email && (
+                          <p className="mt-2">
+                            <a href={`mailto:${governmentContact.email}`} className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                              </svg>
+                              {governmentContact.email}
+                            </a>
+                          </p>
+                        )}
+                        {governmentContact.phone && (
+                          <p className="mt-2">
+                            <a href={`tel:${governmentContact.phone.replace(/[^\d+]/g, '')}`} className="w-full flex items-center justify-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">
+                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                              </svg>
+                              {governmentContact.phone}
+                            </a>
+                          </p>
+                        )}
+                        {governmentContact.website && (
+                          <p className="mt-2">
+                            <a href={governmentContact.website.startsWith('http') ? governmentContact.website : `https://${governmentContact.website}`} 
+                               target="_blank" 
+                               rel="noopener noreferrer" 
+                               className="w-full flex items-center justify-center px-4 py-2 bg-blue-400 text-white rounded-md hover:bg-blue-500 transition-colors">
+                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                              </svg>
+                              Visit Website
+                            </a>
+                          </p>
+                        )}
+                        {governmentContact.limitations && (
+                          <p className="mt-2 text-xs text-gray-500 italic">{governmentContact.limitations}</p>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-center py-2">
+                        <button 
+                          onClick={fetchContactInfo}
+                          disabled={contactInfo.isLoading}
+                          className={`w-full flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
+                            contactInfo.isLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                          }`}
+                        >
+                          {contactInfo.isLoading ? (
+                            <>
+                              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Finding Contact Info...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                              </svg>
+                              Find Government Contact
+                            </>
+                          )}
+                        </button>
+                        <p className="mt-2 text-xs text-gray-500">
+                          Uses AI to find the most relevant government contact for this issue.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

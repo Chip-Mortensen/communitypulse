@@ -148,6 +148,7 @@ export default function IssueForm({
     const newIssue = await createIssue(issueData);
     
     if (newIssue && onSuccess) {
+      // Call onSuccess immediately without delay
       onSuccess(newIssue);
     }
   };

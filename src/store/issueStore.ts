@@ -32,6 +32,7 @@ interface IssueState {
   toggleCommentUpvote: (commentId: string, userId: string) => Promise<{ comment: Comment | null; isUpvoted: boolean; currentUpvotes: number }>;
   checkCommentUpvote: (commentId: string, userId: string) => Promise<boolean>;
   deleteIssue: (id: string) => Promise<boolean>;
+  updateIssueContactInfo: (issueId: string, contactInfo: any) => Promise<Issue | null>;
 }
 
 export const useIssueStore = create<IssueState>((set, get) => ({
@@ -83,6 +84,33 @@ export const useIssueStore = create<IssueState>((set, get) => ({
           issues: [newIssue, ...state.issues],
           isLoading: false 
         }));
+        
+        // Automatically fetch contact information for the new issue
+        // This is done asynchronously so we don't block the UI
+        try {
+          // We don't await this call to avoid blocking the UI
+          fetch('/api/contact-info', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ issue: newIssue }),
+          }).then(async (response) => {
+            if (response.ok) {
+              const result = await response.json();
+              // Update the issue with the contact info
+              get().updateIssueContactInfo(newIssue.id, {
+                ...result.contact,
+                rawResponse: result.rawResponse
+              });
+            }
+          }).catch(error => {
+            console.error('Error auto-fetching contact info:', error);
+          });
+        } catch (contactError) {
+          console.error('Error initiating contact info fetch:', contactError);
+          // Continue even if contact info fetch fails
+        }
       }
       return newIssue;
     } catch (error) {
@@ -199,4 +227,29 @@ export const useIssueStore = create<IssueState>((set, get) => ({
       return false;
     }
   },
-})); 
+  
+  updateIssueContactInfo: async (issueId: string, contactInfo: any) => {
+    try {
+      const updatedIssue = await supabaseService.updateIssueContactInfo(issueId, contactInfo);
+      
+      if (updatedIssue) {
+        // Update the current issue if it's the one being modified
+        if (get().currentIssue?.id === issueId) {
+          set({ currentIssue: updatedIssue });
+        }
+        
+        // Update the issue in the issues array
+        set((state) => ({
+          issues: state.issues.map(issue => 
+            issue.id === issueId ? updatedIssue : issue
+          )
+        }));
+      }
+      
+      return updatedIssue;
+    } catch (error) {
+      console.error(`Error updating contact info for issue ${issueId}:`, error);
+      return null;
+    }
+  },
+}));
