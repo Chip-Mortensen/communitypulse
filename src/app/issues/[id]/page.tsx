@@ -101,30 +101,35 @@ export default function IssueDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="max-w-6xl mx-auto p-6 flex items-center justify-center min-h-[50vh]">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
-          <p className="mt-2 text-gray-700">Loading issue details...</p>
+      <PageContainer>
+        <div className="max-w-6xl mx-auto py-8 px-6 flex items-center justify-center min-h-[50vh]">
+          <div className="text-center">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+            <p className="mt-2 text-gray-700">Loading issue details...</p>
+          </div>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
   if (error || !currentIssue) {
     return (
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="mb-6">
-          <Link href="/issues" className="text-blue-600 hover:underline flex items-center">
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to Issues
-          </Link>
+      <PageContainer>
+        <div className="max-w-6xl mx-auto py-8 px-6">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold text-blue-600 !mb-0">Issue Details</h1>
+            <Link
+              href="/issues"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+            >
+              Back to Issues
+            </Link>
+          </div>
+          <div className="bg-white shadow-md rounded-lg p-6 text-center text-red-600 border border-gray-200">
+            <p>Error loading issue details. The issue may not exist or has been removed.</p>
+          </div>
         </div>
-        <div className="bg-white shadow-md rounded-lg p-6 text-center text-red-600">
-          <p>Error loading issue details. The issue may not exist or has been removed.</p>
-        </div>
-      </div>
+      </PageContainer>
     );
   }
 
@@ -132,21 +137,22 @@ export default function IssueDetailPage() {
 
   return (
     <PageContainer>
-      <div className="max-w-6xl mx-auto">
-        <div className="px-6 pt-6">
-          <Link href="/issues" className="text-blue-600 hover:underline flex items-center">
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
+      <div className="max-w-6xl mx-auto py-8 px-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-blue-600 !mb-0">Issue Details</h1>
+          <Link
+            href="/issues"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+          >
             Back to Issues
           </Link>
         </div>
       
         <div className="flex flex-col md:flex-row">
           {/* Sidebar with Map */}
-          <div className="md:w-1/3 p-6">
+          <div className="md:w-1/3 pr-0 md:pr-4 mb-6 md:mb-0">
             <div className="sticky">
-              <div className="bg-white shadow-md rounded-lg overflow-hidden mb-6 border border-gray-200">
+              <div className="bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
                 <div className="h-64 md:h-80">
                   <IssueSidebarMap issue={currentIssue} />
                 </div>
@@ -175,11 +181,11 @@ export default function IssueDetailPage() {
           </div>
           
           {/* Main Content */}
-          <div className="md:w-2/3 p-6">
-            <div className="bg-white shadow-md rounded-lg overflow-hidden mb-6">
+          <div className="md:w-2/3">
+            <div className="bg-white shadow-md rounded-lg overflow-hidden mb-6 border border-gray-200">
               <div className="p-6">
                 <div className="flex justify-between items-start">
-                  <h1 className="text-2xl font-bold text-gray-900 mb-2">{currentIssue.title}</h1>
+                  <h2 className="text-xl font-bold text-gray-900 mb-2">{currentIssue.title}</h2>
                   <span
                     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       currentIssue.status === 'open'

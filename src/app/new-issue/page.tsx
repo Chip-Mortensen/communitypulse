@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useIssueStore } from '@/store/issueStore';
 import { Database } from '@/types/supabase';
 import PageContainer from '@/components/PageContainer';
+import Link from 'next/link';
 
 // Define types directly from the Supabase generated types
 type Issue = Database['public']['Tables']['issues']['Row'];
@@ -75,114 +76,124 @@ export default function NewIssuePage() {
 
   return (
     <PageContainer>
-      <div className="max-w-2xl mx-auto p-6">
-        <h1 className="text-2xl font-bold mb-6">Report a New Issue</h1>
+      <div className="max-w-6xl mx-auto py-8 px-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-blue-600 !mb-0">Report a New Issue</h1>
+          <Link
+            href="/issues"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+          >
+            Back to Issues
+          </Link>
+        </div>
         
         {error && (
-          <div className="mb-6 p-4 bg-red-100 text-red-800 rounded-md">
+          <div className="mb-6 p-4 bg-red-100 text-red-800 rounded-md border border-red-200">
             <p>{error}</p>
           </div>
         )}
         
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-              Issue Title
-            </label>
-            <input
-              id="title"
-              type="text"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              placeholder="E.g., Pothole on Main Street"
-              {...register('title')}
-            />
-            {errors.title && (
-              <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
-            )}
-          </div>
-          
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
-            <textarea
-              id="description"
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Describe the issue in detail..."
-              {...register('description')}
-            />
-            {errors.description && (
-              <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
-            )}
-          </div>
-          
-          <div>
-            <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-              Location Address
-            </label>
-            <input
-              id="address"
-              type="text"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Enter the address or location description"
-              {...register('address')}
-            />
-            {errors.address && (
-              <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
-            )}
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Location
-            </label>
-            <div className="bg-gray-100 p-3 rounded-md">
-              {userLocation ? (
-                <p className="text-sm text-gray-600">
-                  Your location: {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
-                </p>
-              ) : (
-                <p className="text-sm text-yellow-600">
-                  Waiting for location... Please allow location access when prompted.
-                </p>
+        <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <div>
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+                Issue Title
+              </label>
+              <input
+                id="title"
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="E.g., Pothole on Main Street"
+                {...register('title')}
+              />
+              {errors.title && (
+                <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
               )}
             </div>
-          </div>
-          
-          <div>
-            <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
-              Category
-            </label>
-            <select
-              id="category"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              {...register('category')}
-            >
-              <option value="">Select a category</option>
-              <option value="Infrastructure">Infrastructure</option>
-              <option value="Safety">Safety</option>
-              <option value="Environment">Environment</option>
-              <option value="Public Services">Public Services</option>
-              <option value="Other">Other</option>
-            </select>
-            {errors.category && (
-              <p className="mt-1 text-sm text-red-600">{errors.category.message}</p>
-            )}
-          </div>
-          
-          <div>
-            <button
-              type="submit"
-              disabled={isLoading || !userLocation}
-              className={`w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                (isLoading || !userLocation) ? 'opacity-75 cursor-not-allowed' : ''
-              }`}
-            >
-              {isLoading ? 'Submitting...' : 'Submit Issue'}
-            </button>
-          </div>
-        </form>
+            
+            <div>
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                Description
+              </label>
+              <textarea
+                id="description"
+                rows={4}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Describe the issue in detail..."
+                {...register('description')}
+              />
+              {errors.description && (
+                <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
+              )}
+            </div>
+            
+            <div>
+              <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
+                Location Address
+              </label>
+              <input
+                id="address"
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter the address or location description"
+                {...register('address')}
+              />
+              {errors.address && (
+                <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
+              )}
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Location
+              </label>
+              <div className="bg-gray-100 p-3 rounded-md border border-gray-200">
+                {userLocation ? (
+                  <p className="text-sm text-gray-600">
+                    Your location: {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
+                  </p>
+                ) : (
+                  <p className="text-sm text-yellow-600">
+                    Waiting for location... Please allow location access when prompted.
+                  </p>
+                )}
+              </div>
+            </div>
+            
+            <div>
+              <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
+                Category
+              </label>
+              <select
+                id="category"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                {...register('category')}
+              >
+                <option value="">Select a category</option>
+                <option value="Infrastructure">Infrastructure</option>
+                <option value="Safety">Safety</option>
+                <option value="Environment">Environment</option>
+                <option value="Public Services">Public Services</option>
+                <option value="Other">Other</option>
+              </select>
+              {errors.category && (
+                <p className="mt-1 text-sm text-red-600">{errors.category.message}</p>
+              )}
+            </div>
+            
+            <div>
+              <button
+                type="submit"
+                disabled={isLoading || !userLocation}
+                className={`w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                  (isLoading || !userLocation) ? 'opacity-75 cursor-not-allowed' : ''
+                }`}
+              >
+                {isLoading ? 'Submitting...' : 'Submit Issue'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </PageContainer>
   );
