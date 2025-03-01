@@ -276,6 +276,9 @@ export default function IssueDetailPage() {
           safeUpvoteCount = result.isUpvoted 
             ? previousUpvoteCount + 1 
             : Math.max(0, previousUpvoteCount - 1);
+        } else if (result.currentUpvotes === 0 && previousUpvoteCount === 0 && result.isUpvoted) {
+          // Special case: If both counts are 0 but the user is upvoting, set count to 1
+          safeUpvoteCount = 1;
         } else {
           // Force the upvote count to be at least 0 (never negative)
           safeUpvoteCount = Math.max(0, result.currentUpvotes);
@@ -376,6 +379,9 @@ export default function IssueDetailPage() {
           safeUpvoteCount = result.isUpvoted 
             ? previousUpvoteCount + 1 
             : Math.max(0, previousUpvoteCount - 1);
+        } else if (result.currentUpvotes === 0 && previousUpvoteCount === 0 && result.isUpvoted) {
+          // Special case: If both counts are 0 but the user is upvoting, set count to 1
+          safeUpvoteCount = 1;
         } else {
           // Force the upvote count to be at least 0 (never negative)
           safeUpvoteCount = Math.max(0, result.currentUpvotes);
