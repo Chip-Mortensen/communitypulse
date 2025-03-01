@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Map, { Marker, Popup, MapRef } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Database } from '@/types/supabase';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Define types directly from the Supabase generated types
 type Issue = Database['public']['Tables']['issues']['Row'];
@@ -146,53 +147,173 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
     ));
   }, [issues, handleMarkerClick, selectedIssue]);
 
-  // Render popup for selected issue
-  const popup = useMemo(() => {
-    if (!selectedIssue) return null;
-    
+  // Replace popup with sidebar - Alternative Design
+  const issueSidebar = useMemo(() => {
     return (
-      <Popup
-        longitude={getLocation(selectedIssue).lng}
-        latitude={getLocation(selectedIssue).lat}
-        onClose={() => setSelectedIssue(null)}
-        closeButton={false}
-        closeOnClick={false}
-        anchor="bottom"
-        offset={[0, -30]} // Offset to position above the marker
-        className="custom-popup" // Add custom class for styling
-      >
-        <div className="p-2 max-w-xs relative">
-          <button 
-            onClick={() => setSelectedIssue(null)}
-            className="absolute top-0 right-0 w-6 h-6 flex items-center justify-center bg-gray-200 hover:bg-gray-300 rounded-full transition-colors"
-            aria-label="Close popup"
-          >
-            <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-          <h3 className="font-semibold text-sm mb-1 pr-6">{selectedIssue.title}</h3>
-          <p className="text-xs text-gray-700 mb-2">{selectedIssue.address}</p>
-          <p className="text-xs mb-2 line-clamp-2">{selectedIssue.description}</p>
-          <div className="flex justify-between items-center">
-            <span 
-              className="text-xs px-2 py-0.5 rounded-full"
-              style={{ 
-                backgroundColor: `${categoryColors[selectedIssue.category]}20`, 
-                color: categoryColors[selectedIssue.category] 
-              }}
+      <AnimatePresence mode="wait">
+        {selectedIssue && (
+          <>
+            {/* Semi-transparent overlay */}
+            <motion.div
+              key="overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="absolute inset-0 bg-black z-10"
+              onClick={() => setSelectedIssue(null)}
+            />
+            
+            {/* Sidebar - Alternative Design */}
+            <motion.div 
+              key="sidebar"
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="absolute top-0 right-0 h-full w-80 md:w-96 bg-gradient-to-b from-white to-[#f9f9f9] shadow-lg z-20 flex flex-col"
             >
-              {selectedIssue.category}
-            </span>
-            <Link
-              href={`/issues/${selectedIssue.id}`}
-              className="text-xs text-blue-600 hover:underline"
-            >
-              View Details
-            </Link>
-          </div>
-        </div>
-      </Popup>
+              {/* Header with category color accent */}
+              <div 
+                className="relative pt-12 px-6 pb-6"
+                style={{ 
+                  borderTop: `4px solid ${categoryColors[selectedIssue.category] || categoryColors.Other}` 
+                }}
+              >
+                <button 
+                  onClick={() => setSelectedIssue(null)}
+                  className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-white hover:bg-gray-100 rounded-full transition-colors shadow-sm"
+                  aria-label="Close sidebar"
+                >
+                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+                
+                <span 
+                  className="inline-block text-xs font-medium tracking-wide uppercase mb-2 px-3 py-1 rounded-full"
+                  style={{ 
+                    backgroundColor: `${categoryColors[selectedIssue.category]}15`, 
+                    color: categoryColors[selectedIssue.category] 
+                  }}
+                >
+                  {selectedIssue.category}
+                </span>
+                
+                <h2 className="text-2xl font-bold text-gray-900 leading-tight">{selectedIssue.title}</h2>
+                
+                <div className="flex items-center mt-4 text-sm text-gray-600">
+                  <svg className="w-4 h-4 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span>{selectedIssue.address}</span>
+                </div>
+              </div>
+              
+              {/* Content area */}
+              <div className="flex-1 overflow-y-auto px-6">
+                {/* Status and upvotes card */}
+                <div className="flex items-stretch mb-6 rounded-lg overflow-hidden shadow-sm">
+                  <div 
+                    className={`w-1/2 p-4 flex flex-col items-center justify-center ${
+                      selectedIssue.status === 'open'
+                        ? 'bg-red-50'
+                        : selectedIssue.status === 'in_progress'
+                        ? 'bg-yellow-50'
+                        : 'bg-green-50'
+                    }`}
+                  >
+                    <span className="text-xs uppercase tracking-wide font-medium mb-1 text-gray-500">Status</span>
+                    <span
+                      className={`font-medium ${
+                        selectedIssue.status === 'open'
+                          ? 'text-red-700'
+                          : selectedIssue.status === 'in_progress'
+                          ? 'text-yellow-700'
+                          : 'text-green-700'
+                      }`}
+                    >
+                      {selectedIssue.status === 'open'
+                        ? 'Open'
+                        : selectedIssue.status === 'in_progress'
+                        ? 'In Progress'
+                        : 'Resolved'}
+                    </span>
+                  </div>
+                  
+                  <div className="w-1/2 p-4 bg-blue-50 flex flex-col items-center justify-center">
+                    <span className="text-xs uppercase tracking-wide font-medium mb-1 text-gray-500">Upvotes</span>
+                    <div className="flex items-center">
+                      <svg
+                        className="h-4 w-4 text-blue-600 mr-1"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
+                        />
+                      </svg>
+                      <span className="font-medium text-blue-700">{selectedIssue.upvotes || 0}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Image if available */}
+                {selectedIssue.image_url && (
+                  <div className="mb-6 rounded-lg overflow-hidden shadow-sm">
+                    <img
+                      src={selectedIssue.image_url}
+                      alt={selectedIssue.title}
+                      className="w-full h-48 object-cover"
+                    />
+                  </div>
+                )}
+                
+                {/* Description section */}
+                <div className="mb-6">
+                  <h3 className="text-sm uppercase tracking-wide font-medium text-gray-500 mb-3">Description</h3>
+                  <p className="text-gray-800 leading-relaxed">{selectedIssue.description}</p>
+                </div>
+                
+                {/* Date information */}
+                <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <div>
+                      <span className="block text-xs text-gray-500">Reported on</span>
+                      <span className="block font-medium text-gray-800">
+                        {new Date(selectedIssue.created_at || '').toLocaleDateString(undefined, {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Footer with action button */}
+              <div className="p-6 border-t border-gray-200">
+                <Link
+                  href={`/issues/${selectedIssue.id}`}
+                  className="w-full block text-center px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-colors shadow-sm font-medium"
+                >
+                  View Full Details
+                </Link>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     );
   }, [selectedIssue]);
 
@@ -239,10 +360,10 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
       >
         {/* Issue Markers */}
         {markers}
-        
-        {/* Selected Issue Popup */}
-        {popup}
       </Map>
+      
+      {/* Issue Sidebar */}
+      {issueSidebar}
       
       {/* Report Issue Button */}
       <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-10">

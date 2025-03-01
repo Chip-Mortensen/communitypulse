@@ -15,6 +15,7 @@
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.1",
     "dotenv": "^16.4.7",
+    "framer-motion": "^12.4.7",
     "leaflet": "^1.9.4",
     "mapbox-gl": "^3.10.0",
     "maplibre-gl": "^5.1.1",
