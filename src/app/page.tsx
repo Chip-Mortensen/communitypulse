@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import MapComponent from '@/components/Map';
+import GoogleMapsScript from '@/components/GoogleMapsScript';
 import { useIssueStore } from '@/store/issueStore';
 import { createClient } from '@/lib/supabase';
 import PageContainer from '@/components/PageContainer';
@@ -11,6 +12,9 @@ export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const supabase = createClient();
+  
+  // Replace with your actual Google Maps API key
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
   useEffect(() => {
     const getUser = async () => {
@@ -58,6 +62,8 @@ export default function Home() {
 
   return (
     <PageContainer scrollable={false}>
+      {/* Load Google Maps API with Places library */}
+      <GoogleMapsScript apiKey={googleMapsApiKey} />
       <MapComponent issues={issues} isLoading={isLoading} error={error} />
     </PageContainer>
   );

@@ -21,9 +21,6 @@ export default function AuthLayout({
             <Link href="/" className="flex justify-center">
               <h2 className="text-3xl font-extrabold text-blue-600">CommunityPulse</h2>
             </Link>
-            <h2 className="mt-6 text-2xl font-bold text-gray-900">
-              Welcome to CommunityPulse
-            </h2>
             <p className="mt-2 text-sm text-gray-600">
               Map-based platform for citizens to post, upvote, and collaborate on local community issues
             </p>

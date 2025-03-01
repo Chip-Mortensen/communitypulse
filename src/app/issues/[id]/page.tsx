@@ -598,19 +598,30 @@ export default function IssueDetailPage() {
           </div>
         </div>
       
-        <div className="flex flex-col md:flex-row">
+        <div className="flex flex-col md:flex-row gap-6">
           {/* Sidebar with Map */}
-          <div className="md:w-1/3 pr-0 md:pr-4 mb-6 md:mb-0">
-            <div className="sticky">
-              <div className="bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
+          <div className="md:w-1/3">
+            <div className="sticky top-24">
+              <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-200 transition-all duration-300 hover:shadow-xl">
                 <div className="h-64 md:h-80">
                   <IssueSidebarMap issue={currentIssue} />
                 </div>
-                <div className="p-4">
-                  <h2 className="font-semibold text-gray-900 mb-2">Location</h2>
+                <div className="p-5 bg-gradient-to-b from-white to-gray-50">
+                  <h2 className="font-semibold text-gray-900 mb-2 flex items-center">
+                    <svg className="w-5 h-5 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Location
+                  </h2>
                   <p className="text-gray-700 mb-4">{currentIssue.address}</p>
                   
-                  <h2 className="font-semibold text-gray-900 mb-2">Government Contact</h2>
+                  <h2 className="font-semibold text-gray-900 mb-2 flex items-center">
+                    <svg className="w-5 h-5 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    Government Contact
+                  </h2>
                   <div className="text-sm">
                     {contactInfo.isLoading ? (
                       <div className="flex flex-col items-center py-3">
@@ -618,33 +629,32 @@ export default function IssueDetailPage() {
                         <p className="mt-2 text-gray-600">Finding contact information...</p>
                       </div>
                     ) : governmentContact ? (
-                      <>
-                        <p className="font-medium">{governmentContact.name}</p>
-                        {governmentContact.department && (
-                          <p className="text-gray-700">{governmentContact.department}</p>
-                        )}
-                        {governmentContact.email && (
-                          <p className="mt-2">
+                      <div className="space-y-3">
+                        <div className="bg-blue-50 p-3 rounded-lg">
+                          <p className="font-medium text-blue-800">{governmentContact.name}</p>
+                          {governmentContact.department && (
+                            <p className="text-blue-700 text-sm">{governmentContact.department}</p>
+                          )}
+                        </div>
+                        
+                        <div className="space-y-2">
+                          {governmentContact.email && (
                             <a href={`mailto:${governmentContact.email}`} className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
                               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                               </svg>
-                              {governmentContact.email}
+                              Email Contact
                             </a>
-                          </p>
-                        )}
-                        {governmentContact.phone && (
-                          <p className="mt-2">
+                          )}
+                          {governmentContact.phone && (
                             <a href={`tel:${governmentContact.phone.replace(/[^\d+]/g, '')}`} className="w-full flex items-center justify-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">
                               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                               </svg>
-                              {governmentContact.phone}
+                              Call Contact
                             </a>
-                          </p>
-                        )}
-                        {governmentContact.website && (
-                          <p className="mt-2">
+                          )}
+                          {governmentContact.website && (
                             <a href={governmentContact.website.startsWith('http') ? governmentContact.website : `https://${governmentContact.website}`} 
                                target="_blank" 
                                rel="noopener noreferrer" 
@@ -654,12 +664,13 @@ export default function IssueDetailPage() {
                               </svg>
                               Visit Website
                             </a>
-                          </p>
-                        )}
+                          )}
+                        </div>
+                        
                         {governmentContact.limitations && (
                           <p className="mt-2 text-xs text-gray-500 italic">{governmentContact.limitations}</p>
                         )}
-                      </>
+                      </div>
                     ) : (
                       <div className="text-center py-2">
                         <button 
@@ -699,7 +710,7 @@ export default function IssueDetailPage() {
           
           {/* Main Content */}
           <div className="md:w-2/3">
-            <div className="bg-white shadow-md rounded-lg overflow-hidden mb-6 border border-gray-200">
+            <div className="bg-white shadow-lg rounded-xl overflow-hidden mb-6 border border-gray-200 transition-all duration-300 hover:shadow-xl">
               <div className="p-6">
                 <div className="flex justify-between items-start">
                   <h2 className="text-xl font-bold text-gray-900 mb-2">{currentIssue.title}</h2>
@@ -721,40 +732,43 @@ export default function IssueDetailPage() {
                 </div>
                 
                 {currentIssue.image_url && (
-                  <div className="mb-4 mt-4">
+                  <div className="mb-4 mt-4 rounded-lg overflow-hidden">
                     <img
                       src={currentIssue.image_url}
                       alt={currentIssue.title}
-                      className="w-full h-64 object-cover rounded-md"
+                      className="w-full h-64 object-cover rounded-md transform transition-transform duration-300 hover:scale-[1.02]"
                     />
                   </div>
                 )}
                 
                 <div className="prose max-w-none my-6">
-                  <p>{currentIssue.description}</p>
+                  <p className="text-gray-700 leading-relaxed">{currentIssue.description}</p>
                 </div>
                 
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-2 pt-4 border-t border-gray-100">
                   <div className="flex items-center space-x-4">
-                    <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                    <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2.5 py-1.5 rounded-md font-medium">
                       {currentIssue.category}
                     </span>
-                    <span className="text-sm text-gray-700">
-                      Reported on {getCreatedAt(currentIssue).toLocaleDateString()}
+                    <span className="text-sm text-gray-600 flex items-center">
+                      <svg className="w-4 h-4 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {getCreatedAt(currentIssue).toLocaleDateString()}
                     </span>
                   </div>
                   
                   <button
                     onClick={handleUpvoteClick}
-                    className={`flex items-center space-x-1 px-3 py-1 rounded-md text-sm cursor-pointer ${
+                    className={`flex items-center space-x-1 px-3 py-1.5 rounded-md text-sm cursor-pointer transition-colors duration-200 ${
                       upvoted
-                        ? 'bg-blue-100 text-blue-800'
+                        ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
                         : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                      }`}
                     disabled={isUpvoteLoading}
                   >
                     <svg
-                      className="h-4 w-4"
+                      className={`h-4 w-4 ${upvoted ? 'text-blue-600' : 'text-gray-600'}`}
                       fill={upvoted ? 'currentColor' : 'none'}
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -767,15 +781,20 @@ export default function IssueDetailPage() {
                         d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
                       />
                     </svg>
-                    <span>{getUpvotes(currentIssue)}</span>
+                    <span className="font-medium">{getUpvotes(currentIssue)}</span>
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white shadow-md rounded-lg overflow-hidden mb-6">
+            <div className="bg-white shadow-lg rounded-xl overflow-hidden mb-6 border border-gray-200 transition-all duration-300 hover:shadow-xl">
               <div className="p-6">
-                <h2 className="text-lg font-semibold mb-4">Comments ({comments.length})</h2>
+                <h2 className="text-lg font-semibold mb-4 flex items-center">
+                  <svg className="w-5 h-5 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                  Comments ({comments.length})
+                </h2>
                 
                 {userId ? (
                   <form onSubmit={handleCommentSubmit} className="mb-6">
@@ -784,7 +803,7 @@ export default function IssueDetailPage() {
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
                         placeholder="Add a comment..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                         rows={3}
                       />
                     </div>
@@ -794,7 +813,7 @@ export default function IssueDetailPage() {
                         disabled={isSubmitting}
                         className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
                           isSubmitting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-                        }`}
+                        } transition-colors duration-200`}
                       >
                         {isSubmitting ? (
                           <>
@@ -811,11 +830,11 @@ export default function IssueDetailPage() {
                     </div>
                   </form>
                 ) : (
-                  <div className="bg-gray-50 p-4 rounded-md mb-6 text-center">
-                    <p className="text-gray-700">Please sign in to post a comment.</p>
+                  <div className="bg-blue-50 p-4 rounded-lg mb-6 text-center border border-blue-100">
+                    <p className="text-blue-700">Please sign in to post a comment.</p>
                     <Link 
                       href="/auth/signin" 
-                      className="inline-block mt-2 text-blue-600 hover:text-blue-800 hover:underline"
+                      className="inline-block mt-2 text-blue-600 hover:text-blue-800 hover:underline font-medium"
                     >
                       Sign In
                     </Link>
@@ -825,11 +844,11 @@ export default function IssueDetailPage() {
                 {comments.length > 0 ? (
                   <div className="space-y-4">
                     {comments.map((comment) => (
-                      <div key={comment.id} className="border-b border-gray-200 pb-4 last:border-b-0 last:pb-0">
+                      <div key={comment.id} className="border-b border-gray-200 pb-4 last:border-b-0 last:pb-0 hover:bg-gray-50 p-3 rounded-lg transition-colors duration-200">
                         <div className="flex justify-between items-start">
                           <div className="flex items-start">
                             <div className="flex-shrink-0">
-                              <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-700">
+                              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white shadow-sm">
                                 {comment.profiles?.avatar_url ? (
                                   <img 
                                     src={comment.profiles.avatar_url} 
@@ -845,22 +864,25 @@ export default function IssueDetailPage() {
                               <p className="text-sm font-medium text-gray-900">
                                 {comment.profiles?.display_name || `User ${comment.user_id.substring(0, 8)}`}
                               </p>
-                              <p className="text-sm text-gray-700">
+                              <p className="text-xs text-gray-500 flex items-center">
+                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
                                 {getCreatedAt(comment).toLocaleDateString()}
                               </p>
                             </div>
                           </div>
                           <button
                             onClick={() => getDebouncedCommentHandler(comment.id)()}
-                            className={`flex items-center space-x-1 px-2 py-1 rounded-md text-xs cursor-pointer ${
+                            className={`flex items-center space-x-1 px-2 py-1 rounded-md text-xs cursor-pointer transition-colors duration-200 ${
                               upvotedComments[comment.id]
-                                ? 'bg-blue-100 text-blue-800'
+                                ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
                                 : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                              }`}
                             disabled={upvoteLoadingComments[comment.id]}
                           >
                             <svg
-                              className="h-3 w-3"
+                              className={`h-3 w-3 ${upvotedComments[comment.id] ? 'text-blue-600' : 'text-gray-600'}`}
                               fill={upvotedComments[comment.id] ? 'currentColor' : 'none'}
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -873,17 +895,22 @@ export default function IssueDetailPage() {
                                 d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
                               />
                             </svg>
-                            <span>{getUpvotes(comment)}</span>
+                            <span className="font-medium">{getUpvotes(comment)}</span>
                           </button>
                         </div>
-                        <div className="mt-2 text-sm text-gray-700">
-                          <p>{comment.content}</p>
+                        <div className="mt-2 text-sm text-gray-700 pl-13 ml-13">
+                          <p className="bg-white p-3 rounded-lg border border-gray-100">{comment.content}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-center text-gray-700 py-4">No comments yet. Be the first to comment!</p>
+                  <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                    <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    <p className="text-gray-600">No comments yet. Be the first to comment!</p>
+                  </div>
                 )}
               </div>
             </div>

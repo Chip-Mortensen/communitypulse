@@ -171,20 +171,36 @@ export default function ProfilePage() {
   return (
     <PageContainer>
       <div className="max-w-6xl mx-auto py-8 px-6">
-        <h1 className="text-2xl font-bold mb-8">Your Profile</h1>
+        <div className="flex items-center mb-8">
+          <svg className="w-7 h-7 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+          <h1 className="text-2xl font-bold text-blue-600 !mb-0">Your Profile</h1>
+        </div>
         
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 shadow-sm">
+            <div className="flex">
+              <svg className="w-5 h-5 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{error}</span>
+            </div>
           </div>
         )}
         
-        <div className="bg-white shadow-md rounded-lg p-6 mb-8 border border-gray-200">
-          <h2 className="text-xl font-semibold mb-6">Profile Information</h2>
+        <div className="bg-white shadow-lg rounded-xl overflow-hidden mb-8 border border-gray-200 transition-all duration-300 hover:shadow-xl">
+          <div className="p-8">
+            <h2 className="text-xl font-semibold mb-6 text-gray-800 flex items-center">
+              <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Profile Information
+            </h2>
           
           <form onSubmit={handleSubmit}>
             {/* Top Section: Profile Picture and Bio */}
-            <div className="flex flex-col md:flex-row gap-6 mb-8">
+            <div className="flex flex-col md:flex-row gap-8 mb-8">
               {/* Profile Picture Column - Flush Left */}
               <div className="md:w-auto flex-shrink-0">
                 <div className="w-40 h-40">
@@ -201,7 +217,7 @@ export default function ProfilePage() {
               
               {/* Bio Column */}
               <div className="flex-grow">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Bio
                 </label>
                 <textarea
@@ -209,33 +225,50 @@ export default function ProfilePage() {
                   value={formData.bio || ''}
                   onChange={handleChange}
                   rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md max-h-32 overflow-y-auto"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 max-h-32 overflow-y-auto"
                   placeholder="Tell us a bit about yourself..."
                 ></textarea>
-                <p className="mt-1 text-sm text-gray-500">Share your interests and background with the community</p>
+                <p className="mt-2 text-sm text-gray-500 flex items-center">
+                  <svg className="w-4 h-4 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Share your interests and background with the community
+                </p>
               </div>
             </div>
             
             <div className="border-t border-gray-200 pt-6 mt-2">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Personal Details</h3>
+              <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Personal Details
+              </h3>
               
               {/* Middle Section: Email, Full Name, Display Name */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Email
                   </label>
-                  <input
-                    type="email"
-                    value={profile?.email || ''}
-                    disabled
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
-                  />
-                  <p className="mt-1 text-sm text-gray-500">Email cannot be changed</p>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      value={profile?.email || ''}
+                      disabled
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50"
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-sm text-gray-500">Email cannot be changed</p>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Full Name
                   </label>
                   <input
@@ -243,12 +276,12 @@ export default function ProfilePage() {
                     name="full_name"
                     value={formData.full_name || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Display Name
                   </label>
                   <input
@@ -256,16 +289,21 @@ export default function ProfilePage() {
                     name="display_name"
                     value={formData.display_name || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                   />
-                  <p className="mt-1 text-sm text-gray-500">This is how your name will appear to others</p>
+                  <p className="mt-2 text-sm text-gray-500 flex items-center">
+                    <svg className="w-4 h-4 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    This is how your name will appear to others
+                  </p>
                 </div>
               </div>
               
               {/* Bottom Section: City and Location */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     City
                   </label>
                   <div className="relative">
@@ -274,22 +312,28 @@ export default function ProfilePage() {
                       name="city"
                       value={formData.city || ''}
                       readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50"
                       placeholder="Update your location to verify city"
                     />
                     {formData.city && (
-                      <span className="absolute right-3 top-2 text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">
+                      <span className="absolute right-3 top-3 text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full flex items-center">
+                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
                         Verified
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-sm text-gray-500">
+                  <p className="mt-2 text-sm text-gray-500 flex items-center">
+                    <svg className="w-4 h-4 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
                     Automatically verified based on your location
                   </p>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Location
                   </label>
                   <div className="flex items-center">
@@ -308,7 +352,7 @@ export default function ProfilePage() {
                           setError('Geolocation is not supported by your browser.');
                         }
                       }}
-                      className="px-3 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors duration-200 flex items-center"
+                      className="px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg hover:from-blue-700 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 flex items-center shadow-sm"
                     >
                       <svg 
                         className="w-5 h-5 mr-2" 
@@ -333,12 +377,20 @@ export default function ProfilePage() {
                       Update My Location
                     </button>
                     {formData.location && (
-                      <span className="ml-3 text-sm text-gray-600">
+                      <span className="ml-3 text-sm bg-blue-50 text-blue-700 px-3 py-1 rounded-full flex items-center">
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
                         Location updated
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-sm text-gray-500">This is used to verify your city and is not shared publicly</p>
+                  <p className="mt-2 text-sm text-gray-500 flex items-center">
+                    <svg className="w-4 h-4 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    This is used to verify your city and is not shared publicly
+                  </p>
                 </div>
               </div>
               
@@ -346,45 +398,88 @@ export default function ProfilePage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="px-5 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg hover:from-blue-700 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 transition-all duration-200 shadow-sm flex items-center"
                 >
-                  {saving ? 'Saving...' : 'Save Changes'}
+                  {saving ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Save Changes
+                    </>
+                  )}
                 </button>
               </div>
             </div>
           </form>
         </div>
+      </div>
         
-        {profile && (
-          <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200">
-            <h2 className="text-xl font-semibold mb-4">Account Statistics</h2>
+      {profile && (
+        <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-200 transition-all duration-300 hover:shadow-xl">
+          <div className="p-8">
+            <h2 className="text-xl font-semibold mb-6 text-gray-800 flex items-center">
+              <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              Account Statistics
+            </h2>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-gray-50 p-4 rounded-md text-center">
-                <p className="text-sm text-gray-500 mb-3">Reputation</p>
-                <p className="text-3xl font-bold">{profile.reputation_score}</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="bg-gradient-to-b from-white to-blue-50 p-6 rounded-xl border border-gray-200 shadow-md text-center">
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-600 mb-3 shadow-md border border-blue-100 mx-auto">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                  </svg>
+                </div>
+                <p className="text-sm text-gray-500 mb-2">Reputation</p>
+                <p className="text-3xl font-bold text-gray-800">{profile.reputation_score}</p>
               </div>
               
-              <div className="bg-gray-50 p-4 rounded-md text-center">
-                <p className="text-sm text-gray-500 mb-3">Issues Reported</p>
-                <p className="text-3xl font-bold">{profile.issues_reported}</p>
+              <div className="bg-gradient-to-b from-white to-blue-50 p-6 rounded-xl border border-gray-200 shadow-md text-center">
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-600 mb-3 shadow-md border border-blue-100 mx-auto">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <p className="text-sm text-gray-500 mb-2">Issues Reported</p>
+                <p className="text-3xl font-bold text-gray-800">{profile.issues_reported}</p>
               </div>
               
-              <div className="bg-gray-50 p-4 rounded-md text-center">
-                <p className="text-sm text-gray-500 mb-3">Issues Resolved</p>
-                <p className="text-3xl font-bold">{profile.issues_resolved}</p>
+              <div className="bg-gradient-to-b from-white to-blue-50 p-6 rounded-xl border border-gray-200 shadow-md text-center">
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-600 mb-3 shadow-md border border-blue-100 mx-auto">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <p className="text-sm text-gray-500 mb-2">Issues Resolved</p>
+                <p className="text-3xl font-bold text-gray-800">{profile.issues_resolved}</p>
               </div>
               
-              <div className="bg-gray-50 p-4 rounded-md text-center">
-                <p className="text-sm text-gray-500 mb-3">Member Since</p>
-                <p className="text-3xl font-bold">
+              <div className="bg-gradient-to-b from-white to-blue-50 p-6 rounded-xl border border-gray-200 shadow-md text-center">
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-600 mb-3 shadow-md border border-blue-100 mx-auto">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <p className="text-sm text-gray-500 mb-2">Member Since</p>
+                <p className="text-3xl font-bold text-gray-800">
                   {new Date(profile.created_at).toLocaleDateString()}
                 </p>
               </div>
             </div>
           </div>
-        )}
-      </div>
-    </PageContainer>
+        </div>
+      )}
+    </div>
+  </PageContainer>
   );
 } 
