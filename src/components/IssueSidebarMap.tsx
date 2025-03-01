@@ -46,7 +46,9 @@ export default function IssueSidebarMap({ issue }: IssueSidebarMapProps) {
   // This will show the location but without a marker
   const fallbackUrl = `https://maps.google.com/maps?q=${location.lat},${location.lng}&z=16&output=embed`;
   
-  const mapUrl = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? googleMapsUrl : fallbackUrl;
+  // Temporarily use fallback URL until Maps Embed API is enabled
+  // const mapUrl = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? googleMapsUrl : fallbackUrl;
+  const mapUrl = fallbackUrl;
   
   return (
     <div className="w-full h-full">

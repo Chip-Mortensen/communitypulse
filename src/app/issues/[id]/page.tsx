@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useIssueStore } from '@/store/issueStore';
 import { Database } from '@/types/supabase';
 import PageContainer from '@/components/PageContainer';
@@ -38,10 +38,12 @@ const getCreatedAt = (data: { created_at: string | null }): Date =>
 
 export default function IssueDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const issueId = params.id as string;
   const [userId, setUserId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const { 
     currentIssue, 
@@ -54,7 +56,8 @@ export default function IssueDetailPage() {
     toggleIssueUpvote,
     checkIssueUpvote,
     toggleCommentUpvote,
-    checkCommentUpvote
+    checkCommentUpvote,
+    deleteIssue
   } = useIssueStore();
 
   const [newComment, setNewComment] = useState('');
@@ -460,6 +463,25 @@ export default function IssueDetailPage() {
     }
   };
 
+  // Handle issue deletion
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this issue? This action cannot be undone.')) {
+      return;
+    }
+    
+    setIsDeleting(true);
+    try {
+      const success = await deleteIssue(issueId);
+      if (success) {
+        router.push('/issues');
+      }
+    } catch (error) {
+      console.error('Error deleting issue:', error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (isLoading || initialLoading) {
     return (
       <PageContainer>
@@ -479,12 +501,21 @@ export default function IssueDetailPage() {
         <div className="max-w-6xl mx-auto py-8 px-6">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-blue-600 !mb-0">Issue Details</h1>
-            <Link
-              href="/issues"
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-            >
-              Back to Issues
-            </Link>
+            <div className="flex space-x-3">
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Issue'}
+              </button>
+              <Link
+                href="/issues"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              >
+                Back to Issues
+              </Link>
+            </div>
           </div>
           <div className="bg-white shadow-md rounded-lg p-6 text-center text-red-600 border border-gray-200">
             <p>Error loading issue details. The issue may not exist or has been removed.</p>
@@ -506,12 +537,21 @@ export default function IssueDetailPage() {
       <div className="max-w-6xl mx-auto py-8 px-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-blue-600 !mb-0">Issue Details</h1>
-          <Link
-            href="/issues"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-          >
-            Back to Issues
-          </Link>
+          <div className="flex space-x-3">
+            <button
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete Issue'}
+            </button>
+            <Link
+              href="/issues"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+            >
+              Back to Issues
+            </Link>
+          </div>
         </div>
       
         <div className="flex flex-col md:flex-row">

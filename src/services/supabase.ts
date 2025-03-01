@@ -361,4 +361,54 @@ export async function checkCommentUpvote(commentId: string, userId: string): Pro
   }
   
   return !!data;
+}
+
+/**
+ * Delete an issue by ID
+ * 
+ * @param id The ID of the issue to delete
+ * @returns A boolean indicating if the deletion was successful
+ */
+export async function deleteIssue(id: string): Promise<boolean> {
+  const supabase = createClient();
+  
+  try {
+    // First delete all comments associated with this issue
+    const { error: commentsError } = await supabase
+      .from('comments')
+      .delete()
+      .eq('issue_id', id);
+    
+    if (commentsError) {
+      console.error(`Error deleting comments for issue ${id}:`, commentsError);
+      return false;
+    }
+    
+    // Then delete all upvotes associated with this issue
+    const { error: upvotesError } = await supabase
+      .from('upvotes')
+      .delete()
+      .eq('issue_id', id);
+    
+    if (upvotesError) {
+      console.error(`Error deleting upvotes for issue ${id}:`, upvotesError);
+      return false;
+    }
+    
+    // Finally delete the issue itself
+    const { error } = await supabase
+      .from('issues')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      console.error(`Error deleting issue ${id}:`, error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error(`Error deleting issue ${id}:`, error);
+    return false;
+  }
 } 

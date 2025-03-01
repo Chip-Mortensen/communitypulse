@@ -31,6 +31,7 @@ interface IssueState {
   checkIssueUpvote: (issueId: string, userId: string) => Promise<boolean>;
   toggleCommentUpvote: (commentId: string, userId: string) => Promise<{ comment: Comment | null; isUpvoted: boolean; currentUpvotes: number }>;
   checkCommentUpvote: (commentId: string, userId: string) => Promise<boolean>;
+  deleteIssue: (id: string) => Promise<boolean>;
 }
 
 export const useIssueStore = create<IssueState>((set, get) => ({
@@ -175,6 +176,26 @@ export const useIssueStore = create<IssueState>((set, get) => ({
       return await supabaseService.checkCommentUpvote(commentId, userId);
     } catch (error) {
       console.error(`Error checking upvote status for comment ${commentId}:`, error);
+      return false;
+    }
+  },
+  
+  deleteIssue: async (id: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const success = await supabaseService.deleteIssue(id);
+      if (success) {
+        set((state) => ({ 
+          issues: state.issues.filter(issue => issue.id !== id),
+          isLoading: false 
+        }));
+      } else {
+        set({ error: `Failed to delete issue with id ${id}`, isLoading: false });
+      }
+      return success;
+    } catch (error) {
+      set({ error: `Failed to delete issue with id ${id}`, isLoading: false });
+      console.error(`Error deleting issue with id ${id}:`, error);
       return false;
     }
   },

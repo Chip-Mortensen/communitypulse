@@ -6,6 +6,8 @@ import Map, { Marker, Popup, MapRef } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Database } from '@/types/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getAddressFromCoordinates } from '@/services/geocoding';
+import IssueCreationSidebar from './IssueCreationSidebar';
 
 // Define types directly from the Supabase generated types
 type Issue = Database['public']['Tables']['issues']['Row'];
@@ -52,6 +54,17 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
   
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  
+  // State for issue creation
+  const [creationMode, setCreationMode] = useState(false);
+  const [draftLocation, setDraftLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [draftAddress, setDraftAddress] = useState('');
+  const [isGettingAddress, setIsGettingAddress] = useState(false);
+  
+  // State for drag and drop
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isHoveringReportButton, setIsHoveringReportButton] = useState(false);
 
   // Get user's location on component mount
   useEffect(() => {
@@ -94,13 +107,16 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
     }
   }, [issues, selectedIssue]);
 
-  // Close popup when clicking on the map
-  const handleMapClick = useCallback(() => {
+  // Handle map click
+  const handleMapClick = useCallback((e: any) => {
+    // In view mode, close the selected issue
     setSelectedIssue(null);
   }, []);
 
   // Handle marker click
   const handleMarkerClick = useCallback((e: React.MouseEvent, issue: Issue) => {
+    if (creationMode) return; // Ignore marker clicks in creation mode
+    
     e.preventDefault();
     e.stopPropagation(); // Prevent the click from propagating to the map
     
@@ -116,7 +132,264 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
         essential: true // This animation is considered essential for the user experience
       });
     }
-  }, [selectedIssue]);
+  }, [creationMode]);
+
+  // Handle creation cancel
+  const handleCreationCancel = useCallback(() => {
+    setCreationMode(false);
+    setDraftLocation(null);
+    setDraftAddress('');
+  }, []);
+
+  // Handle drag start
+  const handleDragStart = useCallback((e: React.DragEvent) => {
+    console.log('Drag started');
+    setIsDragging(true);
+    
+    // Force a repaint to ensure the animation starts immediately
+    // This is needed because React might batch state updates
+    requestAnimationFrame(() => {
+      const tooltip = document.querySelector('.instruction-tooltip') as HTMLElement;
+      if (tooltip) {
+        tooltip.classList.remove('tooltip-bounce');
+        void tooltip.offsetWidth; // Trigger reflow
+        tooltip.classList.add('tooltip-bounce');
+      }
+    });
+    
+    // Set data transfer properties
+    e.dataTransfer.setData('text/plain', 'new-issue');
+    e.dataTransfer.effectAllowed = 'copy';
+    
+    try {
+      // Try using a canvas for the drag image (better appearance)
+      const canvas = document.createElement('canvas');
+      canvas.width = 60;
+      canvas.height = 60;
+      
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        // Draw circular background with gradient
+        const gradient = ctx.createLinearGradient(0, 0, 60, 60);
+        gradient.addColorStop(0, '#2563EB');
+        gradient.addColorStop(1, '#3B82F6');
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(30, 30, 28, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw plus icon
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        // Horizontal line
+        ctx.moveTo(20, 30);
+        ctx.lineTo(40, 30);
+        // Vertical line
+        ctx.moveTo(30, 20);
+        ctx.lineTo(30, 40);
+        ctx.stroke();
+        
+        // Add shadow
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+        
+        // Set as drag image
+        e.dataTransfer.setDragImage(canvas, 30, 30);
+      }
+    } catch (err) {
+      console.error('Error setting drag image with canvas:', err);
+      
+      // Fallback: use a simple div as drag image
+      try {
+        const dragImage = document.createElement('div');
+        dragImage.innerHTML = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 6v6m0 0v6m0-6h6m-6 0H6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        dragImage.style.backgroundColor = '#3B82F6';
+        dragImage.style.borderRadius = '50%';
+        dragImage.style.width = '50px';
+        dragImage.style.height = '50px';
+        dragImage.style.display = 'flex';
+        dragImage.style.alignItems = 'center';
+        dragImage.style.justifyContent = 'center';
+        dragImage.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+        dragImage.style.position = 'absolute';
+        dragImage.style.top = '-1000px'; // Hide it
+        
+        document.body.appendChild(dragImage);
+        e.dataTransfer.setDragImage(dragImage, 25, 25);
+        
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(dragImage);
+        }, 100);
+      } catch (fallbackErr) {
+        console.error('Fallback drag image also failed:', fallbackErr);
+        // Continue without a custom drag image
+      }
+    }
+  }, []);
+
+  const handleDragEnd = useCallback((e: React.DragEvent) => {
+    console.log('Drag ended');
+    setIsDragging(false);
+    setDragPosition(null);
+    
+    // Remove the valid drop target class
+    const mapContainer = mapRef.current?.getContainer();
+    if (mapContainer) {
+      mapContainer.classList.remove('valid-drop-target');
+    }
+  }, []);
+
+  const handleMapDragOver = useCallback((e: React.DragEvent) => {
+    // This is crucial - must prevent default to allow drop
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    
+    // Add a class to the map container to show it's a valid drop target
+    const mapContainer = mapRef.current?.getContainer();
+    if (mapContainer) {
+      mapContainer.classList.add('valid-drop-target');
+    }
+    
+    // Update drag position for the target indicator
+    const rect = mapContainer?.getBoundingClientRect();
+    if (rect) {
+      setDragPosition({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      });
+    }
+  }, []);
+
+  const handleMapDrop = useCallback((e: React.DragEvent) => {
+    console.log('Drop event triggered', e);
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Get drop coordinates relative to the map container
+    const mapContainer = mapRef.current?.getContainer();
+    if (!mapContainer) {
+      console.error('Map container not found');
+      return;
+    }
+    
+    const rect = mapContainer.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    console.log('Drop coordinates:', { x, y, clientX: e.clientX, clientY: e.clientY, rect });
+    
+    // Convert screen coordinates to map coordinates
+    const point = mapRef.current?.unproject([x, y]);
+    if (!point) {
+      console.error('Could not unproject point');
+      return;
+    }
+    
+    console.log('Map coordinates:', point);
+    
+    // Set the draft location
+    const newLocation = { lat: point.lat, lng: point.lng };
+    setDraftLocation(newLocation);
+    
+    // Show loading indicator
+    setIsGettingAddress(true);
+    
+    // Show the sidebar immediately with loading state
+    setCreationMode(true);
+    
+    // Center map on the drop location
+    mapRef.current?.flyTo({
+      center: [newLocation.lng, newLocation.lat],
+      zoom: 15,
+      duration: 1000
+    });
+    
+    // Get address from coordinates
+    getAddressFromCoordinates(newLocation.lat, newLocation.lng)
+      .then(address => {
+        console.log('Got address:', address);
+        // Set the address
+        setDraftAddress(address);
+        setIsGettingAddress(false);
+      })
+      .catch(err => {
+        console.error('Error getting address:', err);
+        // Even if we fail to get the address, still allow creation
+        setDraftAddress('');
+        setIsGettingAddress(false);
+      });
+  }, []);
+
+  // Handle click on the "Report an Issue" button (fallback for mobile or if drag doesn't work)
+  const handleReportButtonClick = useCallback(() => {
+    console.log('Report button clicked');
+    
+    // If we have user location, use it as the initial location
+    if (userLocation) {
+      setDraftLocation(userLocation);
+      
+      // Show loading indicator
+      setIsGettingAddress(true);
+      
+      // Show the sidebar immediately with loading state
+      setCreationMode(true);
+      
+      // Center map on the user's location
+      mapRef.current?.flyTo({
+        center: [userLocation.lng, userLocation.lat],
+        zoom: 15,
+        duration: 1000
+      });
+      
+      // Get address from coordinates
+      getAddressFromCoordinates(userLocation.lat, userLocation.lng)
+        .then(address => {
+          console.log('Got address:', address);
+          // Set the address
+          setDraftAddress(address);
+          setIsGettingAddress(false);
+        })
+        .catch(err => {
+          console.error('Error getting address:', err);
+          // Even if we fail to get the address, still allow creation
+          setDraftAddress('');
+          setIsGettingAddress(false);
+        });
+    } else {
+      // If we don't have user location, use the center of the map
+      const center = mapRef.current?.getCenter();
+      if (center) {
+        const newLocation = { lat: center.lat, lng: center.lng };
+        setDraftLocation(newLocation);
+        
+        // Show loading indicator
+        setIsGettingAddress(true);
+        
+        // Show the sidebar immediately with loading state
+        setCreationMode(true);
+        
+        // Get address from coordinates
+        getAddressFromCoordinates(newLocation.lat, newLocation.lng)
+          .then(address => {
+            console.log('Got address:', address);
+            // Set the address
+            setDraftAddress(address);
+            setIsGettingAddress(false);
+          })
+          .catch(err => {
+            console.error('Error getting address:', err);
+            // Even if we fail to get the address, still allow creation
+            setDraftAddress('');
+            setIsGettingAddress(false);
+          });
+      }
+    }
+  }, [userLocation]);
 
   // Render markers for each issue
   const markers = useMemo(() => {
@@ -146,6 +419,25 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
       </Marker>
     ));
   }, [issues, handleMarkerClick, selectedIssue]);
+
+  // Render draft marker for issue creation
+  const draftMarker = useMemo(() => {
+    if (!creationMode || !draftLocation) return null;
+    
+    return (
+      <Marker 
+        longitude={draftLocation.lng}
+        latitude={draftLocation.lat}
+        anchor="bottom"
+      >
+        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center transform transition-transform hover:scale-110 shadow-lg border-2 border-white">
+          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+        </div>
+      </Marker>
+    );
+  }, [creationMode, draftLocation]);
 
   // Replace popup with sidebar - Alternative Design
   const issueSidebar = useMemo(() => {
@@ -323,25 +615,196 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
         .custom-popup .mapboxgl-popup-close-button {
           display: none;
         }
+        
+        /* Add a visual indicator when dragging over the map */
+        .map-drag-active {
+          cursor: crosshair !important;
+        }
+        
+        .map-drag-active::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          border: 3px dashed #2563EB;
+          pointer-events: none;
+          z-index: 10;
+          animation: pulse 1.5s infinite;
+        }
+        
+        /* Valid drop target indicator */
+        .valid-drop-target::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          border: 4px dashed #10B981;
+          background-color: rgba(16, 185, 129, 0.05);
+          pointer-events: none;
+          z-index: 10;
+          animation: pulse-border 1s infinite;
+        }
+        
+        /* Target indicator */
+        .target-indicator {
+          pointer-events: none;
+          z-index: 20;
+        }
+        
+        .target-indicator::before,
+        .target-indicator::after {
+          content: '';
+          position: absolute;
+          background-color: #10B981;
+        }
+        
+        .target-indicator::before {
+          width: 2px;
+          height: 30px;
+          left: 50%;
+          top: 50%;
+          transform: translate(-50%, -50%);
+        }
+        
+        .target-indicator::after {
+          width: 30px;
+          height: 2px;
+          left: 50%;
+          top: 50%;
+          transform: translate(-50%, -50%);
+        }
+        
+        .target-indicator-circle {
+          position: absolute;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          border: 2px solid #10B981;
+          left: 50%;
+          top: 50%;
+          transform: translate(-50%, -50%);
+          animation: pulse-scale 1.5s infinite;
+        }
+        
+        @keyframes pulse-scale {
+          0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.7; }
+          50% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+          100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.7; }
+        }
+        
+        @keyframes pulse-border {
+          0% { border-color: rgba(16, 185, 129, 0.7); }
+          50% { border-color: rgba(16, 185, 129, 1); }
+          100% { border-color: rgba(16, 185, 129, 0.7); }
+        }
+        
+        @keyframes pulse {
+          0% { opacity: 0.3; }
+          50% { opacity: 0.7; }
+          100% { opacity: 0.3; }
+        }
+        
+        /* Pulsing animation for the button */
+        .pulse-animation {
+          position: relative;
+          box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+        }
+        
+        .pulse-animation::before,
+        .pulse-animation::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          border-radius: 50%;
+          animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+        }
+        
+        .pulse-animation::before {
+          box-shadow: 0 0 0 rgba(59, 130, 246, 0.7);
+          animation-delay: 0.5s;
+        }
+        
+        .pulse-animation::after {
+          box-shadow: 0 0 0 rgba(59, 130, 246, 0.7);
+        }
+        
+        @keyframes pulse-ring {
+          0% {
+            box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+          }
+          70% {
+            box-shadow: 0 0 0 20px rgba(59, 130, 246, 0);
+          }
+          100% {
+            box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+          }
+        }
+        
+        /* Fade in animation for the instruction tooltip */
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translate(-50%, 10px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        
+        .instruction-tooltip {
+          animation: fadeIn 0.3s ease-out forwards;
+          left: 50% !important;
+          transform: translateX(-50%);
+          width: max-content;
+        }
+        
+        /* Custom bounce animation for the tooltip */
+        @keyframes tooltip-bounce {
+          0%, 100% { transform: translateX(-50%) translateY(0); }
+          50% { transform: translateX(-50%) translateY(10px); }
+        }
+        
+        .tooltip-bounce {
+          animation: tooltip-bounce 1s ease-in-out infinite;
+        }
       `}</style>
       
       {isLoading && (
         <div className="absolute inset-0 bg-white bg-opacity-75 z-10 flex items-center justify-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
-          <p className="ml-3 text-gray-700">Loading map...</p>
+          <div className="bg-white px-6 py-4 rounded-lg shadow-sm border border-gray-100 flex items-center">
+            <div className="w-5 h-5 rounded-full border-2 border-blue-500 border-t-transparent animate-spin mr-3"></div>
+            <p className="text-sm font-medium text-gray-700">Loading map...</p>
+          </div>
+        </div>
+      )}
+      
+      {/* Address loading indicator */}
+      {isGettingAddress && (
+        <div className="absolute inset-0 bg-black bg-opacity-30 z-30 flex items-center justify-center">
+          <div className="bg-white px-6 py-4 rounded-lg shadow-lg flex items-center">
+            <div className="w-5 h-5 rounded-full border-2 border-blue-500 border-t-transparent animate-spin mr-3"></div>
+            <p className="text-sm font-medium text-gray-700">Getting address...</p>
+          </div>
         </div>
       )}
       
       {error && (
         <div className="absolute inset-0 bg-white bg-opacity-75 z-10 flex items-center justify-center">
-          <div className="text-center p-6 bg-white rounded-lg shadow-md max-w-md">
-            <h2 className="text-2xl font-bold text-red-600 mb-4">Error</h2>
-            <p className="text-gray-700 mb-4">
+          <div className="text-center p-6 bg-white rounded-lg shadow-sm border border-gray-100 max-w-md">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Error Loading Map</h2>
+            <p className="text-gray-600 mb-4">
               {error}
             </p>
             <button
               onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-md hover:from-blue-700 hover:to-blue-600 transition-colors shadow-sm font-medium"
             >
               Try Again
             </button>
@@ -349,41 +812,120 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
         </div>
       )}
       
-      <Map
-        ref={mapRef}
-        mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}
-        initialViewState={viewState}
-        mapStyle="mapbox://styles/mapbox/streets-v12"
-        onClick={handleMapClick}
-        style={{ width: '100%', height: '100%' }}
-        attributionControl={false}
+      {/* Map container with drag and drop handlers */}
+      <div 
+        className={`w-full h-full ${isDragging ? 'map-drag-active' : ''}`}
+        onDragOver={handleMapDragOver}
+        onDrop={handleMapDrop}
       >
-        {/* Issue Markers */}
-        {markers}
-      </Map>
+        <Map
+          ref={mapRef}
+          mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}
+          initialViewState={viewState}
+          mapStyle="mapbox://styles/mapbox/streets-v12"
+          onClick={handleMapClick}
+          style={{ width: '100%', height: '100%' }}
+          attributionControl={false}
+          cursor={isDragging ? 'crosshair' : 'grab'}
+        >
+          {/* Issue Markers */}
+          {markers}
+          
+          {/* Draft Marker for Issue Creation */}
+          {draftMarker}
+          
+          {/* Target indicator that follows the cursor when dragging */}
+          {isDragging && dragPosition && (
+            <div 
+              className="target-indicator absolute pointer-events-none"
+              style={{ 
+                left: `${dragPosition.x}px`, 
+                top: `${dragPosition.y}px`,
+                width: '40px',
+                height: '40px'
+              }}
+            >
+              <div className="target-indicator-circle"></div>
+            </div>
+          )}
+        </Map>
+      </div>
       
       {/* Issue Sidebar */}
       {issueSidebar}
       
-      {/* Report Issue Button */}
+      {/* Issue Creation Sidebar */}
+      <AnimatePresence>
+        {creationMode && draftLocation && (
+          <IssueCreationSidebar
+            location={draftLocation}
+            address={draftAddress}
+            onClose={handleCreationCancel}
+            isAddressLoading={isGettingAddress}
+          />
+        )}
+      </AnimatePresence>
+      
+      {/* Draggable Report Issue Button */}
       <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-10">
-        <Link
-          href="/new-issue"
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-lg flex items-center"
+        <button
+          draggable="true"
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onClick={handleReportButtonClick}
+          onMouseEnter={() => setIsHoveringReportButton(true)}
+          onMouseLeave={() => setIsHoveringReportButton(false)}
+          className={`w-14 h-14 rounded-full bg-gradient-to-r from-blue-600 to-blue-500 text-white flex items-center justify-center cursor-move shadow-lg transition-all hover:from-blue-700 hover:to-blue-600 hover:shadow-xl hover:-translate-y-0.5 ${
+            isDragging ? 'opacity-50 scale-95' : 'scale-100 pulse-animation'
+          }`}
+          title="Drag this button to the location on the map where you want to report an issue, or click to use your current location"
         >
-          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
-          Report an Issue
-        </Link>
+          <span className="sr-only">Report an Issue</span>
+        </button>
       </div>
       
       {/* Issues Count */}
-      <div className="absolute top-4 left-4 bg-white p-2 rounded-md shadow-md z-10">
-        <p className="text-sm font-medium">
+      <div className="absolute top-4 left-4 bg-white px-4 py-2.5 rounded-lg shadow-sm z-10 border border-gray-100 flex items-center">
+        <div className="w-2 h-2 rounded-full bg-blue-500 mr-2"></div>
+        <p className="text-sm font-medium text-gray-700">
           {issues.length} {issues.length === 1 ? 'issue' : 'issues'} reported
         </p>
       </div>
+      
+      {/* Creation Mode Instructions */}
+      {creationMode && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white px-4 py-2.5 rounded-lg shadow-sm z-10 text-center border border-gray-100 flex items-center">
+          {isGettingAddress ? (
+            <>
+              <div className="w-3 h-3 rounded-full border-2 border-blue-500 border-t-transparent animate-spin mr-2"></div>
+              <p className="text-sm font-medium text-gray-700">Getting address...</p>
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              <p className="text-sm font-medium text-gray-700">Fill out the form to report this issue</p>
+            </>
+          )}
+        </div>
+      )}
+      
+      {/* Drag Instructions - Show on hover and when dragging */}
+      {(isHoveringReportButton || isDragging) && (
+        <div className={`absolute top-4 bg-gradient-to-r from-blue-600 to-blue-500 text-white px-4 py-2.5 rounded-lg shadow-md z-20 text-center instruction-tooltip ${isDragging ? 'tooltip-bounce' : ''}`}>
+          <p className="text-sm font-medium flex items-center">
+            <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Drop anywhere on the map to report an issue
+          </p>
+        </div>
+      )}
       
       {/* Reset View Button - Only show when an issue is selected */}
       {selectedIssue && (
@@ -399,12 +941,13 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
                 });
               }
             }}
-            className="bg-white p-2 rounded-md shadow-md hover:bg-gray-100 transition-colors"
+            className="bg-white px-3 py-2.5 rounded-lg shadow-sm hover:bg-gray-50 transition-colors border border-gray-100 flex items-center"
             aria-label="Reset view"
           >
-            <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <svg className="w-4 h-4 text-blue-500 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
             </svg>
+            <span className="text-sm font-medium text-gray-700">Reset view</span>
           </button>
         </div>
       )}
