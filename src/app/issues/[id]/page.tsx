@@ -10,7 +10,12 @@ import IssueSidebarMap from '@/components/IssueSidebarMap';
 
 // Define types directly from the Supabase generated types
 type Issue = Database['public']['Tables']['issues']['Row'];
-type Comment = Database['public']['Tables']['comments']['Row'];
+type Comment = Database['public']['Tables']['comments']['Row'] & {
+  profiles: {
+    display_name: string | null;
+    avatar_url: string | null;
+  }
+};
 
 // Helper functions to safely handle nullable fields
 const getUpvotes = (data: { upvotes: number | null }): number => data.upvotes ?? 0;
@@ -287,11 +292,21 @@ export default function IssueDetailPage() {
                           <div className="flex items-start">
                             <div className="flex-shrink-0">
                               <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-700">
-                                {comment.user_id.charAt(0).toUpperCase()}
+                                {comment.profiles?.avatar_url ? (
+                                  <img 
+                                    src={comment.profiles.avatar_url} 
+                                    alt={comment.profiles.display_name || 'User'} 
+                                    className="h-10 w-10 rounded-full object-cover"
+                                  />
+                                ) : (
+                                  (comment.profiles?.display_name?.[0] || comment.user_id.charAt(0)).toUpperCase()
+                                )}
                               </div>
                             </div>
                             <div className="ml-3">
-                              <p className="text-sm font-medium text-gray-900">User {comment.user_id}</p>
+                              <p className="text-sm font-medium text-gray-900">
+                                {comment.profiles?.display_name || `User ${comment.user_id.substring(0, 8)}`}
+                              </p>
                               <p className="text-sm text-gray-700">
                                 {getCreatedAt(comment).toLocaleDateString()}
                               </p>

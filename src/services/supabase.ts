@@ -78,18 +78,61 @@ export async function updateIssueUpvotes(id: string, upvotes: number) {
 // Comments
 export async function getCommentsByIssueId(issueId: string) {
   const supabase = createClient();
-  const { data, error } = await supabase
+  
+  // First, get the comments
+  const { data: comments, error: commentsError } = await supabase
     .from('comments')
     .select('*')
     .eq('issue_id', issueId)
     .order('created_at', { ascending: true });
 
-  if (error) {
-    console.error(`Error fetching comments for issue ${issueId}:`, error);
+  if (commentsError) {
+    console.error(`Error fetching comments for issue ${issueId}:`, commentsError);
     return [];
   }
 
-  return data as Comment[];
+  // If we have comments, fetch the profile information for each comment
+  if (comments && comments.length > 0) {
+    // Get unique user IDs
+    const userIds = [...new Set(comments.map(comment => comment.user_id))];
+    
+    // Fetch profiles for these users
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, display_name, avatar_url')
+      .in('id', userIds);
+    
+    if (profilesError) {
+      console.error('Error fetching profiles:', profilesError);
+    } else if (profiles) {
+      // Create a map of user_id to profile info
+      const profileMap = profiles.reduce((map, profile) => {
+        map[profile.id] = {
+          display_name: profile.display_name,
+          avatar_url: profile.avatar_url
+        };
+        return map;
+      }, {} as Record<string, { display_name: string | null, avatar_url: string | null }>);
+      
+      // Attach profile info to comments
+      return comments.map(comment => ({
+        ...comment,
+        profiles: {
+          display_name: profileMap[comment.user_id]?.display_name || null,
+          avatar_url: profileMap[comment.user_id]?.avatar_url || null
+        }
+      }));
+    }
+  }
+  
+  // Return comments without profiles if we couldn't fetch profiles
+  return comments.map(comment => ({
+    ...comment,
+    profiles: {
+      display_name: null,
+      avatar_url: null
+    }
+  }));
 }
 
 export async function createComment(comment: Omit<CommentInsert, 'upvotes'>) {
@@ -109,7 +152,14 @@ export async function createComment(comment: Omit<CommentInsert, 'upvotes'>) {
     return null;
   }
 
-  return data[0] as Comment;
+  // Add empty profiles object to match the extended Comment type
+  return {
+    ...data[0],
+    profiles: {
+      display_name: null,
+      avatar_url: null
+    }
+  };
 }
 
 export async function updateCommentUpvotes(id: string, upvotes: number) {
@@ -125,5 +175,12 @@ export async function updateCommentUpvotes(id: string, upvotes: number) {
     return null;
   }
 
-  return data[0] as Comment;
+  // Add empty profiles object to match the extended Comment type
+  return {
+    ...data[0],
+    profiles: {
+      display_name: null,
+      avatar_url: null
+    }
+  };
 } 

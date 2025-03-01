@@ -4,7 +4,12 @@ import * as supabaseService from '@/services/supabase';
 
 // Define types directly from the Supabase generated types
 type Issue = Database['public']['Tables']['issues']['Row'];
-type Comment = Database['public']['Tables']['comments']['Row'];
+type Comment = Database['public']['Tables']['comments']['Row'] & {
+  profiles?: {
+    display_name: string | null;
+    avatar_url: string | null;
+  }
+};
 type IssueInsert = Database['public']['Tables']['issues']['Insert'];
 type CommentInsert = Database['public']['Tables']['comments']['Insert'];
 

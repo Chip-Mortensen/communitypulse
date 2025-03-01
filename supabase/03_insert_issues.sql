@@ -1,9 +1,6 @@
 -- Insert issues for CommunityPulse database
 -- This script adds test issues for each profile
 
--- Enable error handling
-\set ON_ERROR_STOP on
-
 BEGIN;
 
 -- 3. INSERT SAMPLE ISSUES

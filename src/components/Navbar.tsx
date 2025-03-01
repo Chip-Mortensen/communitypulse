@@ -147,7 +147,7 @@ export default function Navbar() {
                 <div>
                   <button
                     type="button"
-                    className="bg-white rounded-full flex text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    className="bg-white rounded-full flex text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer"
                     id="user-menu-button"
                     aria-expanded={isProfileOpen}
                     aria-haspopup="true"
