@@ -44,6 +44,98 @@ const categoryColors: Record<string, string> = {
   'Other': '#6B7280', // gray
 };
 
+// Helper function to convert hex to HSL
+const hexToHSL = (hex: string): { h: number; s: number; l: number } => {
+  // Remove the # if present
+  hex = hex.replace(/^#/, '');
+  
+  // Parse the hex values
+  let r = parseInt(hex.substring(0, 2), 16) / 255;
+  let g = parseInt(hex.substring(2, 4), 16) / 255;
+  let b = parseInt(hex.substring(4, 6), 16) / 255;
+  
+  // Find the min and max values to calculate lightness
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  
+  // Calculate lightness
+  let l = (max + min) / 2;
+  
+  // Calculate saturation
+  let s = 0;
+  if (max !== min) {
+    s = l > 0.5 ? (max - min) / (2 - max - min) : (max - min) / (max + min);
+  }
+  
+  // Calculate hue
+  let h = 0;
+  if (max !== min) {
+    if (max === r) {
+      h = (g - b) / (max - min) + (g < b ? 6 : 0);
+    } else if (max === g) {
+      h = (b - r) / (max - min) + 2;
+    } else {
+      h = (r - g) / (max - min) + 4;
+    }
+    h *= 60;
+  }
+  
+  return { h, s, l };
+};
+
+// Helper function to convert HSL to hex
+const hslToHex = (h: number, s: number, l: number): string => {
+  // Convert HSL to RGB
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = l - c / 2;
+  
+  let r, g, b;
+  if (h >= 0 && h < 60) {
+    [r, g, b] = [c, x, 0];
+  } else if (h >= 60 && h < 120) {
+    [r, g, b] = [x, c, 0];
+  } else if (h >= 120 && h < 180) {
+    [r, g, b] = [0, c, x];
+  } else if (h >= 180 && h < 240) {
+    [r, g, b] = [0, x, c];
+  } else if (h >= 240 && h < 300) {
+    [r, g, b] = [x, 0, c];
+  } else {
+    [r, g, b] = [c, 0, x];
+  }
+  
+  // Convert RGB to hex
+  const toHex = (value: number) => {
+    const hex = Math.round((value + m) * 255).toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  };
+  
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+};
+
+// Helper function to adjust color lightness based on upvotes
+const getColorByUpvotes = (baseColor: string, upvotes: number, minUpvotes: number, maxUpvotes: number): string => {
+  // Convert the base color to HSL
+  const hsl = hexToHSL(baseColor);
+  
+  // If there's only one issue in the category or all have the same upvotes
+  if (minUpvotes === maxUpvotes) {
+    // Return a lighter version of the base color
+    return hslToHex(hsl.h, hsl.s, 0.65);
+  }
+  
+  // Calculate the normalized value (0 to 1)
+  const normalizedValue = (upvotes - minUpvotes) / (maxUpvotes - minUpvotes);
+  
+  // Adjust lightness based on upvotes (higher upvotes = darker/more saturated)
+  // We'll use a range from 50% to 80% lightness (lighter overall)
+  const newLightness = 0.8 - (normalizedValue * 0.3);
+  
+  // Return the new color
+  return hslToHex(hsl.h, hsl.s, newLightness);
+};
+
 export default function MapComponent({ issues = [], isLoading = false, error = null }: MapComponentProps) {
   const mapRef = useRef<MapRef>(null);
   const [viewState, setViewState] = useState({
@@ -55,6 +147,16 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   
+  // State for category filters
+  const [categoryFilters, setCategoryFilters] = useState<Record<string, boolean>>(() => {
+    // Initialize with all categories checked
+    const filters: Record<string, boolean> = {};
+    Object.keys(categoryColors).forEach(category => {
+      filters[category] = true;
+    });
+    return filters;
+  });
+  
   // State for issue creation
   const [creationMode, setCreationMode] = useState(false);
   const [draftLocation, setDraftLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -65,6 +167,9 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
   const [isDragging, setIsDragging] = useState(false);
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
   const [isHoveringReportButton, setIsHoveringReportButton] = useState(false);
+  
+  // State for filter panel
+  const [isFilterExpanded, setIsFilterExpanded] = useState(true);
 
   // Get user's location on component mount
   useEffect(() => {
@@ -345,34 +450,103 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
     }
   }, [userLocation]);
 
+  // Toggle a category filter
+  const toggleCategoryFilter = useCallback((category: string) => {
+    setCategoryFilters(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  }, []);
+
+  // Toggle all category filters
+  const toggleAllCategoryFilters = useCallback((checked: boolean) => {
+    const newFilters: Record<string, boolean> = {};
+    Object.keys(categoryColors).forEach(category => {
+      newFilters[category] = checked;
+    });
+    setCategoryFilters(newFilters);
+  }, []);
+
+  // Filter issues based on selected categories
+  const filteredIssues = useMemo(() => {
+    return issues.filter(issue => categoryFilters[issue.category] || false);
+  }, [issues, categoryFilters]);
+
+  // Calculate min and max upvotes for each category
+  const upvoteStats = useMemo(() => {
+    const stats: Record<string, { min: number; max: number }> = {};
+    
+    // Initialize with default values
+    Object.keys(categoryColors).forEach(category => {
+      stats[category] = { min: Infinity, max: -Infinity };
+    });
+    
+    // Calculate min and max for each category
+    filteredIssues.forEach(issue => {
+      const category = issue.category;
+      const upvotes = issue.upvotes ?? 0;
+      
+      if (upvotes < stats[category].min) {
+        stats[category].min = upvotes;
+      }
+      if (upvotes > stats[category].max) {
+        stats[category].max = upvotes;
+      }
+    });
+    
+    // Handle edge cases where there are no issues in a category
+    Object.keys(stats).forEach(category => {
+      if (stats[category].min === Infinity) {
+        stats[category].min = 0;
+      }
+      if (stats[category].max === -Infinity) {
+        stats[category].max = 0;
+      }
+    });
+    
+    return stats;
+  }, [filteredIssues]);
+
   // Render markers for each issue
   const markers = useMemo(() => {
-    return issues.map(issue => (
-      <Marker 
-        key={issue.id}
-        longitude={getLocation(issue).lng}
-        latitude={getLocation(issue).lat}
-        anchor="bottom"
-        onClick={(e) => {
-          // This prevents the map's onClick from firing
-          e.originalEvent.stopPropagation();
-        }}
-      >
-        <div 
-          className="w-6 h-6 rounded-full flex items-center justify-center cursor-pointer transform transition-transform hover:scale-110"
-          style={{ 
-            backgroundColor: categoryColors[issue.category] || categoryColors.Other,
-            // Highlight the selected marker
-            boxShadow: selectedIssue?.id === issue.id ? '0 0 0 3px white, 0 0 0 5px #3B82F6' : 'none',
-            zIndex: selectedIssue?.id === issue.id ? 10 : 1
+    return filteredIssues.map(issue => {
+      const category = issue.category;
+      const upvotes = issue.upvotes ?? 0;
+      const baseColor = categoryColors[category] || categoryColors.Other;
+      
+      // Get the min and max upvotes for this category
+      const { min, max } = upvoteStats[category];
+      
+      // Calculate the color based on upvotes
+      const markerColor = getColorByUpvotes(baseColor, upvotes, min, max);
+      
+      return (
+        <Marker 
+          key={issue.id}
+          longitude={getLocation(issue).lng}
+          latitude={getLocation(issue).lat}
+          anchor="bottom"
+          onClick={(e) => {
+            // This prevents the map's onClick from firing
+            e.originalEvent.stopPropagation();
           }}
-          onClick={(e) => handleMarkerClick(e, issue)}
         >
-          <span className="text-white text-xs font-bold">{issue.upvotes}</span>
-        </div>
-      </Marker>
-    ));
-  }, [issues, handleMarkerClick, selectedIssue]);
+          <div 
+            className="w-6 h-6 rounded-full flex items-center justify-center cursor-pointer transform transition-transform hover:scale-110"
+            style={{ 
+              backgroundColor: markerColor,
+              // Highlight the selected marker
+              boxShadow: selectedIssue?.id === issue.id ? '0 0 0 3px white, 0 0 0 5px #3B82F6' : 'none',
+              zIndex: selectedIssue?.id === issue.id ? 10 : 1
+            }}
+            onClick={(e) => handleMarkerClick(e, issue)}
+          >
+            {/* Removed upvote count display */}
+          </div>
+        </Marker>
+      );
+    });
+  }, [filteredIssues, handleMarkerClick, selectedIssue, upvoteStats]);
 
   // Render draft marker for issue creation
   const draftMarker = useMemo(() => {
@@ -768,6 +942,51 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
         .tooltip-bounce {
           animation: tooltip-bounce 1s ease-in-out infinite;
         }
+        
+        /* Filter panel styles */
+        .filter-panel {
+          transition: transform 0.3s ease-in-out;
+        }
+        
+        .filter-panel.collapsed {
+          transform: translateX(calc(-100% + 32px));
+        }
+        
+        /* Custom checkbox styles */
+        .custom-checkbox {
+          position: relative;
+          display: inline-block;
+          width: 18px;
+          height: 18px;
+          margin-right: 8px;
+          border-radius: 4px;
+          border: 2px solid #fff;
+          box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+          overflow: hidden;
+        }
+        
+        .custom-checkbox input {
+          position: absolute;
+          opacity: 0;
+          width: 100%;
+          height: 100%;
+          cursor: pointer;
+        }
+        
+        .custom-checkbox .checkmark {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background-color: white;
+          opacity: 1;
+          transition: opacity 0.2s;
+        }
+        
+        .custom-checkbox input:checked ~ .checkmark {
+          opacity: 0;
+        }
       `}</style>
       
       {isLoading && (
@@ -810,6 +1029,91 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
           </div>
         </div>
       )}
+      
+      {/* Category Filter Panel */}
+      <div 
+        className={`absolute left-0 top-1/2 transform -translate-y-1/2 z-20 filter-panel ${!isFilterExpanded ? 'collapsed' : ''}`}
+      >
+        <div className="bg-white rounded-r-lg shadow-md overflow-hidden flex">
+          {/* Filter Content */}
+          <div className="p-4 w-64 bg-gradient-to-b from-gray-50 to-white">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-semibold text-gray-700">Filter by Category</h3>
+              <button 
+                onClick={() => setIsFilterExpanded(!isFilterExpanded)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label={isFilterExpanded ? "Collapse filter panel" : "Expand filter panel"}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isFilterExpanded ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"} />
+                </svg>
+              </button>
+            </div>
+            
+            {/* Select/Deselect All */}
+            <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-200">
+              <span className="text-xs text-gray-500">Toggle all categories</span>
+              <div className="flex space-x-2">
+                <button 
+                  onClick={() => toggleAllCategoryFilters(true)}
+                  className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                >
+                  Select All
+                </button>
+                <button 
+                  onClick={() => toggleAllCategoryFilters(false)}
+                  className="text-xs px-2 py-1 bg-gray-50 text-gray-600 rounded hover:bg-gray-100 transition-colors"
+                >
+                  Deselect All
+                </button>
+              </div>
+            </div>
+            
+            {/* Category Checkboxes */}
+            <div className="space-y-2">
+              {Object.entries(categoryColors).map(([category, color]) => (
+                <div key={category} className="flex items-center">
+                  <label className="flex items-center cursor-pointer w-full">
+                    <div 
+                      className="custom-checkbox"
+                      style={{ backgroundColor: color }}
+                    >
+                      <input 
+                        type="checkbox" 
+                        checked={categoryFilters[category] || false}
+                        onChange={() => toggleCategoryFilter(category)}
+                      />
+                      <div className="checkmark"></div>
+                    </div>
+                    <span className="text-sm text-gray-700">{category}</span>
+                  </label>
+                  <span className="text-xs text-gray-500 ml-auto">
+                    {issues.filter(issue => issue.category === category).length}
+                  </span>
+                </div>
+              ))}
+            </div>
+            
+            {/* Filter Stats */}
+            <div className="mt-4 pt-3 border-t border-gray-200 text-xs text-gray-500">
+              Showing {filteredIssues.length} of {issues.length} issues
+            </div>
+          </div>
+          
+          {/* Toggle Button - Only visible when collapsed */}
+          {!isFilterExpanded && (
+            <button
+              onClick={() => setIsFilterExpanded(true)}
+              className="bg-white p-2 flex items-center justify-center hover:bg-gray-50 transition-colors h-full border-l border-gray-100"
+              aria-label="Expand filter panel"
+            >
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
       
       {/* Map container with drag and drop handlers */}
       <div 
@@ -887,11 +1191,11 @@ export default function MapComponent({ issues = [], isLoading = false, error = n
         </button>
       </div>
       
-      {/* Issues Count */}
+      {/* Issues Count - Updated to show filtered count */}
       <div className="absolute top-4 left-4 bg-white px-4 py-2.5 rounded-lg shadow-sm z-10 border border-gray-100 flex items-center">
         <div className="w-2 h-2 rounded-full bg-blue-500 mr-2"></div>
         <p className="text-sm font-medium text-gray-700">
-          {issues.length} {issues.length === 1 ? 'issue' : 'issues'} reported
+          {filteredIssues.length} {filteredIssues.length === 1 ? 'issue' : 'issues'} shown
         </p>
       </div>
       
