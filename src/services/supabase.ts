@@ -75,6 +75,76 @@ export async function updateIssueUpvotes(id: string, upvotes: number) {
   return data[0] as Issue;
 }
 
+/**
+ * Toggle an upvote for an issue. If the user has already upvoted the issue,
+ * the upvote will be removed. Otherwise, a new upvote will be created.
+ * 
+ * @param issueId The ID of the issue to toggle the upvote for
+ * @param userId The ID of the user toggling the upvote
+ * @returns An object with the updated issue and a boolean indicating if the issue is now upvoted
+ */
+export async function toggleIssueUpvote(issueId: string, userId: string) {
+  const supabase = createClient();
+  
+  try {
+    // Use a transaction to ensure atomicity
+    const { data, error } = await supabase.rpc('toggle_issue_upvote', {
+      p_issue_id: issueId,
+      p_user_id: userId
+    });
+    
+    if (error) {
+      console.error('Error from toggle_issue_upvote RPC:', error);
+      throw error;
+    }
+    
+    if (!data || data.length === 0) {
+      console.error('No data returned from toggle_issue_upvote');
+      return { issue: null, isUpvoted: false, currentUpvotes: 0 };
+    }
+    
+    // Ensure we have valid data
+    const isUpvoted = !!data[0]?.is_upvoted;
+    const currentUpvotes = typeof data[0]?.current_upvotes === 'number' ? data[0].current_upvotes : 0;
+    
+    return { 
+      issue: null, 
+      isUpvoted, 
+      currentUpvotes 
+    };
+  } catch (error) {
+    console.error(`Error toggling upvote for issue ${issueId}:`, error);
+    return { issue: null, isUpvoted: false, currentUpvotes: 0 };
+  }
+}
+
+/**
+ * Check if a user has already upvoted an issue
+ * 
+ * @param issueId The ID of the issue to check
+ * @param userId The ID of the user to check
+ * @returns A boolean indicating if the user has upvoted the issue
+ */
+export async function checkIssueUpvote(issueId: string, userId: string): Promise<boolean> {
+  if (!userId) return false;
+  
+  const supabase = createClient();
+  
+  const { data, error } = await supabase
+    .from('upvotes')
+    .select('id')
+    .eq('issue_id', issueId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  
+  if (error) {
+    console.error(`Error checking upvote status for issue ${issueId}:`, error);
+    return false;
+  }
+  
+  return !!data;
+}
+
 // Comments
 export async function getCommentsByIssueId(issueId: string) {
   const supabase = createClient();
@@ -152,12 +222,31 @@ export async function createComment(comment: Omit<CommentInsert, 'upvotes'>) {
     return null;
   }
 
-  // Add empty profiles object to match the extended Comment type
+  // Fetch the user's profile information
+  const { data: profileData, error: profileError } = await supabase
+    .from('profiles')
+    .select('display_name, avatar_url')
+    .eq('id', comment.user_id)
+    .single();
+
+  if (profileError) {
+    console.error('Error fetching profile:', profileError);
+    // Return comment with empty profile if we couldn't fetch the profile
+    return {
+      ...data[0],
+      profiles: {
+        display_name: null,
+        avatar_url: null
+      }
+    };
+  }
+
+  // Return comment with profile information
   return {
     ...data[0],
     profiles: {
-      display_name: null,
-      avatar_url: null
+      display_name: profileData.display_name,
+      avatar_url: profileData.avatar_url
     }
   };
 }
@@ -175,12 +264,101 @@ export async function updateCommentUpvotes(id: string, upvotes: number) {
     return null;
   }
 
-  // Add empty profiles object to match the extended Comment type
+  // Fetch the user's profile information
+  const { data: profileData, error: profileError } = await supabase
+    .from('profiles')
+    .select('display_name, avatar_url')
+    .eq('id', data[0].user_id)
+    .single();
+
+  if (profileError) {
+    console.error('Error fetching profile:', profileError);
+    // Return comment with empty profile if we couldn't fetch the profile
+    return {
+      ...data[0],
+      profiles: {
+        display_name: null,
+        avatar_url: null
+      }
+    };
+  }
+
+  // Return comment with profile information
   return {
     ...data[0],
     profiles: {
-      display_name: null,
-      avatar_url: null
+      display_name: profileData.display_name,
+      avatar_url: profileData.avatar_url
     }
   };
+}
+
+/**
+ * Toggle an upvote for a comment. If the user has already upvoted the comment,
+ * the upvote will be removed. Otherwise, a new upvote will be created.
+ * 
+ * @param commentId The ID of the comment to toggle the upvote for
+ * @param userId The ID of the user toggling the upvote
+ * @returns An object with the updated comment and a boolean indicating if the comment is now upvoted
+ */
+export async function toggleCommentUpvote(commentId: string, userId: string) {
+  const supabase = createClient();
+  
+  try {
+    // Use a transaction to ensure atomicity
+    const { data, error } = await supabase.rpc('toggle_comment_upvote', {
+      p_comment_id: commentId,
+      p_user_id: userId
+    });
+    
+    if (error) {
+      console.error('Error from toggle_comment_upvote RPC:', error);
+      throw error;
+    }
+    
+    if (!data || data.length === 0) {
+      console.error('No data returned from toggle_comment_upvote');
+      return { comment: null, isUpvoted: false, currentUpvotes: 0 };
+    }
+    
+    // Ensure we have valid data
+    const isUpvoted = !!data[0]?.is_upvoted;
+    const currentUpvotes = typeof data[0]?.current_upvotes === 'number' ? data[0].current_upvotes : 0;
+    
+    return { 
+      comment: null, 
+      isUpvoted, 
+      currentUpvotes 
+    };
+  } catch (error) {
+    console.error(`Error toggling upvote for comment ${commentId}:`, error);
+    return { comment: null, isUpvoted: false, currentUpvotes: 0 };
+  }
+}
+
+/**
+ * Check if a user has already upvoted a comment
+ * 
+ * @param commentId The ID of the comment to check
+ * @param userId The ID of the user to check
+ * @returns A boolean indicating if the user has upvoted the comment
+ */
+export async function checkCommentUpvote(commentId: string, userId: string): Promise<boolean> {
+  if (!userId) return false;
+  
+  const supabase = createClient();
+  
+  const { data, error } = await supabase
+    .from('upvotes')
+    .select('id')
+    .eq('comment_id', commentId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  
+  if (error) {
+    console.error(`Error checking upvote status for comment ${commentId}:`, error);
+    return false;
+  }
+  
+  return !!data;
 } 

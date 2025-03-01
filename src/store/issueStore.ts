@@ -27,6 +27,10 @@ interface IssueState {
   createIssue: (issue: IssueInsert) => Promise<Issue | null>;
   createComment: (comment: Omit<CommentInsert, 'upvotes'>) => Promise<void>;
   updateIssueUpvotes: (id: string, upvotes: number) => Promise<void>;
+  toggleIssueUpvote: (issueId: string, userId: string) => Promise<{ issue: Issue | null; isUpvoted: boolean; currentUpvotes: number }>;
+  checkIssueUpvote: (issueId: string, userId: string) => Promise<boolean>;
+  toggleCommentUpvote: (commentId: string, userId: string) => Promise<{ comment: Comment | null; isUpvoted: boolean; currentUpvotes: number }>;
+  checkCommentUpvote: (commentId: string, userId: string) => Promise<boolean>;
 }
 
 export const useIssueStore = create<IssueState>((set, get) => ({
@@ -104,20 +108,74 @@ export const useIssueStore = create<IssueState>((set, get) => ({
   },
   
   updateIssueUpvotes: async (id: string, upvotes: number) => {
+    // This function is now obsolete with real-time subscriptions
+    // Keeping it for backward compatibility but making it a no-op
+    return;
+  },
+  
+  toggleIssueUpvote: async (issueId: string, userId: string) => {
     try {
-      const updatedIssue = await supabaseService.updateIssueUpvotes(id, upvotes);
-      if (updatedIssue) {
-        set((state) => ({
-          issues: state.issues.map((issue) => 
-            issue.id === id ? { ...issue, upvotes } : issue
-          ),
-          currentIssue: state.currentIssue?.id === id 
-            ? { ...state.currentIssue, upvotes } 
-            : state.currentIssue
-        }));
+      const result = await supabaseService.toggleIssueUpvote(issueId, userId);
+      
+      // Ensure we have a valid response
+      if (result && typeof result.currentUpvotes === 'number') {
+        // Ensure upvote count is never negative
+        const safeUpvoteCount = Math.max(0, result.currentUpvotes);
+        
+        return { 
+          issue: null, 
+          isUpvoted: result.isUpvoted, 
+          currentUpvotes: safeUpvoteCount 
+        };
+      } else {
+        console.error("Invalid response from supabaseService.toggleIssueUpvote:", result);
+        return { issue: null, isUpvoted: false, currentUpvotes: 0 };
       }
     } catch (error) {
-      console.error(`Error updating upvotes for issue ${id}:`, error);
+      console.error(`Error toggling upvote for issue ${issueId}:`, error);
+      return { issue: null, isUpvoted: false, currentUpvotes: 0 };
+    }
+  },
+  
+  checkIssueUpvote: async (issueId: string, userId: string) => {
+    try {
+      return await supabaseService.checkIssueUpvote(issueId, userId);
+    } catch (error) {
+      console.error(`Error checking upvote status for issue ${issueId}:`, error);
+      return false;
+    }
+  },
+  
+  toggleCommentUpvote: async (commentId: string, userId: string) => {
+    try {
+      const result = await supabaseService.toggleCommentUpvote(commentId, userId);
+      
+      // Ensure we have a valid response
+      if (result && typeof result.currentUpvotes === 'number') {
+        // Ensure upvote count is never negative
+        const safeUpvoteCount = Math.max(0, result.currentUpvotes);
+        
+        return { 
+          comment: null, 
+          isUpvoted: result.isUpvoted, 
+          currentUpvotes: safeUpvoteCount 
+        };
+      } else {
+        console.error("Invalid response from supabaseService.toggleCommentUpvote:", result);
+        return { comment: null, isUpvoted: false, currentUpvotes: 0 };
+      }
+    } catch (error) {
+      console.error(`Error toggling upvote for comment ${commentId}:`, error);
+      return { comment: null, isUpvoted: false, currentUpvotes: 0 };
+    }
+  },
+  
+  checkCommentUpvote: async (commentId: string, userId: string) => {
+    try {
+      return await supabaseService.checkCommentUpvote(commentId, userId);
+    } catch (error) {
+      console.error(`Error checking upvote status for comment ${commentId}:`, error);
+      return false;
     }
   },
 })); 

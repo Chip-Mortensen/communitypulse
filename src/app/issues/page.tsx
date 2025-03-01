@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useIssueStore } from '@/store/issueStore';
 import { Database } from '@/types/supabase';
 import PageContainer from '@/components/PageContainer';
+import { createClient } from '@/lib/supabase';
 
 // Define types directly from the Supabase generated types
 type Issue = Database['public']['Tables']['issues']['Row'];
@@ -16,11 +17,56 @@ const getCreatedAt = (issue: Issue): Date =>
 
 export default function IssuesPage() {
   const { issues, isLoading, error, fetchIssues } = useIssueStore();
-  const [filter, setFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('upvotes');
+  const [filter, setFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('upvotes');
 
   useEffect(() => {
     fetchIssues();
+
+    // Set up real-time subscription for issues
+    const supabase = createClient();
+    const subscription = supabase
+      .channel('issues-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'issues'
+        },
+        (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            // Get the updated issue
+            const updatedIssue = payload.new as Issue;
+            
+            // Update the issue in the state
+            useIssueStore.setState(state => ({
+              ...state,
+              issues: state.issues.map(issue => {
+                if (issue.id === updatedIssue.id) {
+                  return updatedIssue;
+                }
+                return issue;
+              })
+            }));
+          } else if (payload.eventType === 'INSERT') {
+            // Fetch all issues to ensure proper sorting
+            fetchIssues();
+          } else if (payload.eventType === 'DELETE' && payload.old) {
+            // Remove the deleted issue from the state
+            useIssueStore.setState(state => ({
+              ...state,
+              issues: state.issues.filter(issue => issue.id !== payload.old.id)
+            }));
+          }
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      // Clean up subscription
+      supabase.removeChannel(subscription);
+    };
   }, [fetchIssues]);
 
   const filteredIssues = issues.filter((issue) => {
@@ -164,15 +210,18 @@ export default function IssuesPage() {
                               </svg>
                               {getCreatedAt(issue).toLocaleDateString()}
                             </span>
-                            <span className="flex items-center">
+                            <span className="flex items-center text-gray-700">
                               <svg
-                                className="h-4 w-4 mr-1 text-gray-700"
+                                className="h-3 w-3 mr-1"
                                 fill="currentColor"
-                                viewBox="0 0 20 20"
+                                viewBox="0 0 24 24"
+                                xmlns="http://www.w3.org/2000/svg"
                               >
-                                <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
+                                <path
+                                  d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
+                                />
                               </svg>
-                              {issue.upvotes}
+                              <span>{getUpvotes(issue)}</span>
                             </span>
                           </div>
                         </div>

@@ -1,17 +1,31 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useIssueStore } from '@/store/issueStore';
 import { Database } from '@/types/supabase';
 import PageContainer from '@/components/PageContainer';
 import IssueSidebarMap from '@/components/IssueSidebarMap';
+import { createClient } from '@/lib/supabase';
+
+// Add debounce utility
+function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout | null = null;
+  
+  return function(...args: Parameters<T>) {
+    if (timeout) clearTimeout(timeout);
+    
+    timeout = setTimeout(() => {
+      func(...args);
+    }, wait);
+  };
+}
 
 // Define types directly from the Supabase generated types
 type Issue = Database['public']['Tables']['issues']['Row'];
 type Comment = Database['public']['Tables']['comments']['Row'] & {
-  profiles: {
+  profiles?: {
     display_name: string | null;
     avatar_url: string | null;
   }
@@ -25,6 +39,9 @@ const getCreatedAt = (data: { created_at: string | null }): Date =>
 export default function IssueDetailPage() {
   const params = useParams();
   const issueId = params.id as string;
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   
   const { 
     currentIssue, 
@@ -34,40 +51,379 @@ export default function IssueDetailPage() {
     fetchIssueById, 
     fetchCommentsByIssueId,
     createComment,
-    updateIssueUpvotes
+    toggleIssueUpvote,
+    checkIssueUpvote,
+    toggleCommentUpvote,
+    checkCommentUpvote
   } = useIssueStore();
 
   const [newComment, setNewComment] = useState('');
   const [upvoted, setUpvoted] = useState(false);
+  const [upvotedComments, setUpvotedComments] = useState<Record<string, boolean>>({});
+  const [isUpvoteLoading, setIsUpvoteLoading] = useState(false);
+  const [upvoteLoadingComments, setUpvoteLoadingComments] = useState<Record<string, boolean>>({});
+  // Add a ref to track if an upvote operation is in progress
+  const isUpvoteOperationInProgress = useRef(false);
+  // Add a ref to track which comments are being upvoted
+  const commentsBeingUpvoted = useRef<Record<string, boolean>>({});
 
+  // Fetch issue and comments data
   useEffect(() => {
-    fetchIssueById(issueId);
-    fetchCommentsByIssueId(issueId);
+    const fetchData = async () => {
+      await fetchIssueById(issueId);
+      await fetchCommentsByIssueId(issueId);
+      setInitialLoading(false);
+    };
+    
+    fetchData();
   }, [issueId, fetchIssueById, fetchCommentsByIssueId]);
+  
+  // Get the current user's ID
+  useEffect(() => {
+    const fetchUserId = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+      }
+    };
+    
+    fetchUserId();
+  }, []);
 
-  const handleUpvote = () => {
-    if (!currentIssue) return;
+  // Set up real-time subscriptions
+  useEffect(() => {
+    if (!currentIssue) return; // Don't set up subscriptions until we have the current issue
     
-    const newUpvotes = upvoted 
-      ? getUpvotes(currentIssue) - 1 
-      : getUpvotes(currentIssue) + 1;
+    const supabase = createClient();
     
-    updateIssueUpvotes(issueId, newUpvotes);
-    setUpvoted(!upvoted);
+    // Subscribe to changes on the issue
+    const issueSubscription = supabase
+      .channel('issue-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'issues',
+          filter: `id=eq.${issueId}`
+        },
+        (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            // Get the new data
+            const updatedIssue = payload.new as Issue;
+            
+            // Only preserve the upvote count if an upvote operation is in progress
+            if (currentIssue) {
+              // If we're in the middle of an upvote operation, don't update the upvote count
+              // from the real-time subscription as it might be stale compared to our direct API response
+              const mergedIssue = {
+                ...updatedIssue,
+                // Only preserve the upvote count if we're in the middle of an upvote operation
+                upvotes: isUpvoteOperationInProgress.current ? currentIssue.upvotes : updatedIssue.upvotes
+              };
+              
+              // Only update the state if there's an actual change to avoid unnecessary re-renders
+              if (JSON.stringify(mergedIssue) !== JSON.stringify(currentIssue)) {
+                useIssueStore.setState({ currentIssue: mergedIssue });
+              }
+            }
+          } else {
+            // For other event types, fetch the issue again
+            fetchIssueById(issueId);
+          }
+        }
+      )
+      .subscribe();
+    
+    // Subscribe to changes on comments for this issue
+    const commentsSubscription = supabase
+      .channel('comments-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'comments',
+          filter: `issue_id=eq.${issueId}`
+        },
+        async (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            // Get the updated comment
+            const updatedComment = payload.new as Comment;
+            
+            // Update the comment in the state, preserving the upvote count if needed
+            useIssueStore.setState(state => ({
+              ...state,
+              comments: state.comments.map(comment => {
+                if (comment.id === updatedComment.id) {
+                  // If we're in the middle of upvoting this comment, don't update the upvote count
+                  // from the real-time subscription as it might be stale compared to our direct API response
+                  return {
+                    ...updatedComment,
+                    // Only preserve the upvote count if we're in the middle of upvoting this comment
+                    upvotes: commentsBeingUpvoted.current[updatedComment.id] ? comment.upvotes : updatedComment.upvotes,
+                    // Preserve profile information
+                    profiles: comment.profiles
+                  };
+                }
+                return comment;
+              })
+            }));
+          } else if (payload.eventType === 'INSERT') {
+            // Fetch all comments to ensure we have the complete data
+            fetchCommentsByIssueId(issueId);
+          } else if (payload.eventType === 'DELETE' && payload.old) {
+            // Remove the deleted comment from the state
+            useIssueStore.setState(state => ({
+              ...state,
+              comments: state.comments.filter(comment => comment.id !== payload.old.id)
+            }));
+          }
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      // Clean up subscriptions
+      supabase.removeChannel(issueSubscription);
+      supabase.removeChannel(commentsSubscription);
+    };
+  }, [issueId, currentIssue, fetchIssueById, fetchCommentsByIssueId]);
+
+  // Check if the user has upvoted this issue
+  useEffect(() => {
+    const checkUpvoteStatus = async () => {
+      if (userId && issueId) {
+        const hasUpvoted = await checkIssueUpvote(issueId, userId);
+        setUpvoted(hasUpvoted);
+      }
+    };
+    
+    checkUpvoteStatus();
+  }, [userId, issueId, checkIssueUpvote]);
+
+  // Check which comments the user has upvoted
+  useEffect(() => {
+    const checkCommentUpvotes = async () => {
+      if (!userId || comments.length === 0) return;
+      
+      const upvotedMap: Record<string, boolean> = {};
+      
+      // Process all comment upvote checks in parallel for better performance
+      const upvoteChecks = comments.map(async (comment) => {
+        const isUpvoted = await checkCommentUpvote(comment.id, userId);
+        return { commentId: comment.id, isUpvoted };
+      });
+      
+      const results = await Promise.all(upvoteChecks);
+      
+      results.forEach(({ commentId, isUpvoted }) => {
+        upvotedMap[commentId] = isUpvoted;
+      });
+      
+      setUpvotedComments(upvotedMap);
+    };
+    
+    checkCommentUpvotes();
+  }, [userId, comments, checkCommentUpvote]);
+
+  const handleUpvote = async () => {
+    if (!currentIssue || !userId || isUpvoteLoading) return;
+    
+    // Store the current upvote count before the operation
+    const previousUpvoteCount = currentIssue.upvotes ?? 0;
+    
+    setIsUpvoteLoading(true);
+    // Set the flag to indicate an upvote operation is in progress
+    isUpvoteOperationInProgress.current = true;
+    
+    try {
+      // Use the enhanced toggle function that returns the current upvote count
+      const result = await toggleIssueUpvote(issueId, userId);
+      
+      // Make sure we have a valid response with currentUpvotes
+      if (result && typeof result.currentUpvotes === 'number') {
+        // Update the UI based on the server response
+        setUpvoted(result.isUpvoted);
+        
+        // If the server returns 0 but the previous count was not 0, use the previous count +/- 1
+        // This is a fallback in case the database function returns incorrect data
+        let safeUpvoteCount = result.currentUpvotes;
+        
+        if (result.currentUpvotes === 0 && previousUpvoteCount > 0) {
+          // If the user is upvoting, increment the previous count, otherwise decrement it
+          safeUpvoteCount = result.isUpvoted 
+            ? previousUpvoteCount + 1 
+            : Math.max(0, previousUpvoteCount - 1);
+        } else {
+          // Force the upvote count to be at least 0 (never negative)
+          safeUpvoteCount = Math.max(0, result.currentUpvotes);
+        }
+        
+        // Update the current issue with the server-provided upvote count
+        if (currentIssue) {
+          const updatedIssue = { 
+            ...currentIssue, 
+            upvotes: safeUpvoteCount 
+          };
+          
+          // Directly update the state to ensure it takes effect immediately
+          useIssueStore.setState({ 
+            currentIssue: updatedIssue 
+          });
+        }
+      } else {
+        console.error("Invalid response from toggleIssueUpvote:", result);
+      }
+    } catch (error) {
+      console.error("Error toggling issue upvote:", error);
+    } finally {
+      // Keep the isUpvoteOperationInProgress flag true for a bit longer to ensure
+      // any real-time updates that come in don't override our upvote count
+      setTimeout(() => {
+        setIsUpvoteLoading(false);
+        
+        // Reset the flag after the operation is complete
+        setTimeout(() => {
+          isUpvoteOperationInProgress.current = false;
+        }, 1000); // Increased delay to ensure any real-time updates have been processed
+      }, 100);
+    }
   };
+
+  // Create a stable reference to the handleUpvote function
+  const handleUpvoteRef = useRef(handleUpvote);
+  useEffect(() => {
+    handleUpvoteRef.current = handleUpvote;
+  }, [handleUpvote]);
+  
+  // Create a debounced version of the upvote handler
+  const debouncedHandleUpvoteRef = useRef<(() => void) | undefined>(undefined);
+  if (!debouncedHandleUpvoteRef.current) {
+    debouncedHandleUpvoteRef.current = debounce(() => {
+      handleUpvoteRef.current();
+    }, 300);
+  }
+  
+  // Stable click handler that uses the debounced function
+  const handleUpvoteClick = useCallback(() => {
+    if (debouncedHandleUpvoteRef.current) {
+      debouncedHandleUpvoteRef.current();
+    }
+  }, []);
+
+  const handleCommentUpvote = async (commentId: string) => {
+    if (!userId || upvoteLoadingComments[commentId]) return;
+    
+    // Find the comment in the current state
+    const comment = comments.find(comment => comment.id === commentId);
+    if (!comment) return;
+    
+    // Store the current upvote count before the operation
+    const previousUpvoteCount = comment.upvotes ?? 0;
+    
+    // Set loading state for this specific comment
+    setUpvoteLoadingComments(prev => ({
+      ...prev,
+      [commentId]: true
+    }));
+    
+    // Mark this comment as being upvoted
+    commentsBeingUpvoted.current = {
+      ...commentsBeingUpvoted.current,
+      [commentId]: true
+    };
+    
+    try {
+      // Use the enhanced toggle function that returns the current upvote count
+      const result = await toggleCommentUpvote(commentId, userId);
+      
+      // Make sure we have a valid response with currentUpvotes
+      if (result && typeof result.currentUpvotes === 'number') {
+        // Update the UI based on the server response
+        setUpvotedComments(prev => ({
+          ...prev,
+          [commentId]: result.isUpvoted
+        }));
+        
+        // If the server returns 0 but the previous count was not 0, use the previous count +/- 1
+        // This is a fallback in case the database function returns incorrect data
+        let safeUpvoteCount = result.currentUpvotes;
+        
+        if (result.currentUpvotes === 0 && previousUpvoteCount > 0) {
+          // If the user is upvoting, increment the previous count, otherwise decrement it
+          safeUpvoteCount = result.isUpvoted 
+            ? previousUpvoteCount + 1 
+            : Math.max(0, previousUpvoteCount - 1);
+        } else {
+          // Force the upvote count to be at least 0 (never negative)
+          safeUpvoteCount = Math.max(0, result.currentUpvotes);
+        }
+        
+        // Update the comments array with the server-provided upvote count
+        const updatedComments = comments.map(c => 
+          c.id === commentId 
+            ? { ...c, upvotes: safeUpvoteCount } 
+            : c
+        );
+        
+        useIssueStore.setState({ comments: updatedComments });
+      } else {
+        console.error("Invalid response from toggleCommentUpvote:", result);
+      }
+    } catch (error) {
+      console.error("Error toggling comment upvote:", error);
+    } finally {
+      setUpvoteLoadingComments(prev => ({
+        ...prev,
+        [commentId]: false
+      }));
+      
+      // Reset the flag after the operation is complete
+      setTimeout(() => {
+        commentsBeingUpvoted.current = {
+          ...commentsBeingUpvoted.current,
+          [commentId]: false
+        };
+      }, 500); // Add a small delay to ensure any real-time updates have been processed
+    }
+  };
+
+  // Create a stable reference to the comment upvote handler
+  const handleCommentUpvoteRef = useRef(handleCommentUpvote);
+  useEffect(() => {
+    handleCommentUpvoteRef.current = handleCommentUpvote;
+  }, [handleCommentUpvote]);
+  
+  // Create a map of debounced handlers for each comment
+  const debouncedCommentHandlersRef = useRef<Record<string, () => void>>({});
+  
+  // Get or create a debounced handler for a specific comment
+  const getDebouncedCommentHandler = useCallback((commentId: string) => {
+    if (!debouncedCommentHandlersRef.current[commentId]) {
+      debouncedCommentHandlersRef.current[commentId] = debounce(() => {
+        handleCommentUpvoteRef.current(commentId);
+      }, 300);
+    }
+    return debouncedCommentHandlersRef.current[commentId];
+  }, []);
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newComment.trim() || !currentIssue) return;
+    if (!newComment.trim() || !currentIssue || !userId) return;
 
+    setIsSubmitting(true);
+    
     const commentData: Database['public']['Tables']['comments']['Insert'] = {
       issue_id: issueId,
-      user_id: 'current-user', // In a real app, this would be the current user's ID
+      user_id: userId,
       content: newComment,
     };
 
     await createComment(commentData);
     setNewComment('');
+    setIsSubmitting(false);
   };
 
   // Mock government contact info based on issue category
@@ -104,7 +460,7 @@ export default function IssueDetailPage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || initialLoading) {
     return (
       <PageContainer>
         <div className="max-w-6xl mx-auto py-8 px-6 flex items-center justify-center min-h-[50vh]">
@@ -117,7 +473,7 @@ export default function IssueDetailPage() {
     );
   }
 
-  if (error || !currentIssue) {
+  if ((error || !currentIssue) && !initialLoading) {
     return (
       <PageContainer>
         <div className="max-w-6xl mx-auto py-8 px-6">
@@ -136,6 +492,11 @@ export default function IssueDetailPage() {
         </div>
       </PageContainer>
     );
+  }
+
+  // Ensure currentIssue is not null before proceeding
+  if (!currentIssue) {
+    return null;
   }
 
   const governmentContact = getGovernmentContact(currentIssue.category);
@@ -233,12 +594,13 @@ export default function IssueDetailPage() {
                   </div>
                   
                   <button
-                    onClick={handleUpvote}
-                    className={`flex items-center space-x-1 px-3 py-1 rounded-md text-sm ${
+                    onClick={handleUpvoteClick}
+                    className={`flex items-center space-x-1 px-3 py-1 rounded-md text-sm cursor-pointer ${
                       upvoted
                         ? 'bg-blue-100 text-blue-800'
                         : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                    }`}
+                     }`}
+                    disabled={isUpvoteLoading}
                   >
                     <svg
                       className="h-4 w-4"
@@ -264,25 +626,50 @@ export default function IssueDetailPage() {
               <div className="p-6">
                 <h2 className="text-lg font-semibold mb-4">Comments ({comments.length})</h2>
                 
-                <form onSubmit={handleCommentSubmit} className="mb-6">
-                  <div className="mb-4">
-                    <textarea
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Add a comment..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      rows={3}
-                    />
-                  </div>
-                  <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                {userId ? (
+                  <form onSubmit={handleCommentSubmit} className="mb-6">
+                    <div className="mb-4">
+                      <textarea
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        placeholder="Add a comment..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        rows={3}
+                      />
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
+                          isSubmitting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                        }`}
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Posting...
+                          </>
+                        ) : (
+                          'Post Comment'
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="bg-gray-50 p-4 rounded-md mb-6 text-center">
+                    <p className="text-gray-700">Please sign in to post a comment.</p>
+                    <Link 
+                      href="/auth/signin" 
+                      className="inline-block mt-2 text-blue-600 hover:text-blue-800 hover:underline"
                     >
-                      Post Comment
-                    </button>
+                      Sign In
+                    </Link>
                   </div>
-                </form>
+                )}
                 
                 {comments.length > 0 ? (
                   <div className="space-y-4">
@@ -312,16 +699,31 @@ export default function IssueDetailPage() {
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center text-sm text-gray-700">
+                          <button
+                            onClick={() => getDebouncedCommentHandler(comment.id)()}
+                            className={`flex items-center space-x-1 px-2 py-1 rounded-md text-xs cursor-pointer ${
+                              upvotedComments[comment.id]
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                             }`}
+                            disabled={upvoteLoadingComments[comment.id]}
+                          >
                             <svg
-                              className="h-4 w-4 mr-1 text-gray-700"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
+                              className="h-3 w-3"
+                              fill={upvotedComments[comment.id] ? 'currentColor' : 'none'}
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
                             >
-                              <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
+                              />
                             </svg>
-                            {getUpvotes(comment)}
-                          </div>
+                            <span>{getUpvotes(comment)}</span>
+                          </button>
                         </div>
                         <div className="mt-2 text-sm text-gray-700">
                           <p>{comment.content}</p>
